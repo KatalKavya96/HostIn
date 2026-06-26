@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ColorThemeToggle, useColorTheme } from "./theme-system";
 
 type Role = "owner" | "warden" | "guard" | "security" | "staff" | "tenant" | "parent" | "platform";
 type SectionId =
@@ -124,6 +125,7 @@ function titleFromSlug(slug: string) {
 
 export function WorkspaceApp({ workspace, role }: { workspace: string; role: string }) {
   const normalizedRole = normalizeRole(role);
+  const { themeKey, setThemeKey } = useColorTheme();
   const [login, setLogin] = useState<LoginState | null>(null);
   const [activeId, setActiveId] = useState<SectionId>(normalizedRole === "platform" ? "platform" : "overview");
   const [message, setMessage] = useState("Login to open this private workspace.");
@@ -266,6 +268,7 @@ export function WorkspaceApp({ workspace, role }: { workspace: string; role: str
             </button>
           ))}
         </nav>
+        <ColorThemeToggle themeKey={themeKey} onChange={setThemeKey} />
         <button className="gradientButton" onClick={syncModule} type="button">
           Sync
         </button>

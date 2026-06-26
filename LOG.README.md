@@ -230,6 +230,34 @@ This file tracks what was requested, what decisions were made, what changed, and
 **Verification**
 - `client npm run build` passed.
 
+### Landing Page Sections And Dashboard Theme Toggle
+
+**Request**
+- Add relevant public landing sections similar to Safcurl:
+  - About
+  - Pricing
+  - Consultation
+  - Careers
+  - Contact
+  - Get Started
+- Add a dashboard colour toggle with smooth animation.
+- Make the colour system global and easy to extend later.
+- Add a 1Forge Studio-style violet theme option.
+
+**Changes**
+- Expanded `client/app/page.tsx` into a fuller public product landing page.
+- Added public navigation for About, Pricing, Consultation, Careers, Contact, and Get Started.
+- Added reusable theme configuration in `client/app/components/theme-system.tsx`.
+- Added a dashboard theme toggle to the logged-in workspace top bar.
+- Theme choice now persists in `localStorage`.
+- Added CSS variable-driven colour tokens for accent colours, gradients, focus rings, hero styling, and shadows.
+- Added the new `forge-violet` theme inspired by the 1Forge Studio violet/white visual style.
+
+**Verification**
+- `client npm run build` passed.
+- `curl -I http://localhost:3000` returned `200 OK`.
+- Next dev log showed `/city-complex/warden` rendering with `200`.
+
 ## Ongoing Instruction
 
 - Continue updating this log whenever the user requests a feature, design change, backend change, seed/data change, or bug fix.
