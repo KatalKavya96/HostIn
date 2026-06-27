@@ -658,10 +658,11 @@ button {
 }
 
 .tenantExperience {
-  display: grid;
-  gap: 22px;
-  grid-template-columns: 360px minmax(0, 1fr);
+  display: block !important;
+  width: 100%;
 }
+
+.tenantDirectoryPanel { width: 100%; }
 
 .tenantCreateForm {
   display: grid;
@@ -681,6 +682,56 @@ button {
   gap: 22px;
   grid-template-columns: minmax(0, 1fr) 340px;
 }
+
+.tenantList { min-width: 0; }
+
+.tenantDetailSlot {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(12px);
+  transition: max-width 260ms ease, opacity 180ms ease, transform 260ms ease;
+}
+
+.tenantDetailSlot.isVisible {
+  max-width: 340px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.modalBackdrop {
+  align-items: center;
+  background: rgba(16, 24, 40, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 100;
+  animation: modalFade 160ms ease both;
+}
+
+.tenantCreateModal {
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  width: min(520px, 100%);
+  animation: modalRise 220ms ease both;
+}
+
+.modalHeader {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modalHeader h3, .modalHeader p { margin: 0; }
+.modalHeader h3 { font-size: 26px; }
+.modalHeader p { color: var(--muted); margin-top: 5px; }
+.modalHeader button { background: #f2f4f7; border: 0; border-radius: 50%; font-size: 24px; height: 38px; width: 38px; }
+
+@keyframes modalFade { from { opacity: 0; } }
+@keyframes modalRise { from { opacity: 0; transform: translateY(14px) scale(.98); } }
 
 .tenantToolbar {
   grid-template-columns: 1fr;
@@ -882,6 +933,37 @@ button {
   color: var(--muted);
   font-weight: 800;
 }
+
+.commentComposer { display: grid; gap: 8px; grid-template-columns: 1fr auto; }
+.commentComposer button { background: var(--accent); border: 0; border-radius: 8px; color: #fff; font-weight: 900; padding: 0 16px; }
+.commentComposer p { background: #f8fafc; border-radius: 8px; grid-column: 1 / -1; padding: 10px 12px; }
+.commentComposer p strong { display: inline; margin-right: 6px; }
+
+.statusPill.approved, .statusPill.paid { background: #ecfdf3; color: #067647; }
+.statusPill.rejected, .statusPill.overdue { background: #fff1f3; color: #e31b54; }
+.statusPill.pending, .statusPill.unpaid, .statusPill.partial { background: #f2f4f7; color: #475467; }
+
+.financeExperience { display: grid; gap: 20px; }
+.financeStats { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.financeToolbar { grid-template-columns: minmax(220px, 1fr) 180px 210px; }
+.dueAmount { align-items: flex-end; display: flex; flex-direction: column; gap: 8px; }
+.dueAmount > strong { font-size: 18px; }
+
+.menuHeader { align-items: center; display: flex; justify-content: space-between; }
+.menuHeader label { color: var(--muted); display: grid; font-size: 12px; font-weight: 900; gap: 5px; }
+.messTableWrap { overflow-x: auto; }
+.messTable { border-collapse: collapse; min-width: 960px; width: 100%; }
+.messTable th, .messTable td { border: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }
+.messTable thead th { background: #f8fafc; }
+.messTable textarea { border: 0; min-height: 76px; padding: 8px; resize: vertical; width: 100%; }
+.messTable td span { color: var(--muted); line-height: 1.5; }
+
+.contactGrid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.contactCard { align-items: center; border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 12px; grid-template-columns: 44px 1fr auto; padding: 14px; }
+.contactCard > span { align-items: center; background: var(--accent-soft); border-radius: 50%; color: var(--accent-strong); display: flex; font-weight: 900; height: 44px; justify-content: center; }
+.contactCard strong, .contactCard small { display: block; }
+.contactCard small { color: var(--muted); margin-top: 4px; }
+.contactCard a { color: var(--accent-strong); font-weight: 900; }
 
 .communityPost p {
   line-height: 1.5;

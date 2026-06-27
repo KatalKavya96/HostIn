@@ -63,7 +63,20 @@ export const handleListComplaints = async (req: AuthorizedRequest, res: Response
       },
     });
 
-    return res.status(200).json({ complaints });
+    const interactions = await prisma.communityInteraction.findMany({
+      where: { org_id: orgId, post_type: "complaints", post_id: { in: complaints.map((item) => item.id) } },
+      include: { user: { select: { full_name: true } } },
+      orderBy: { created_at: "asc" },
+    });
+
+    const formattedComplaints = complaints.map((complaint) => ({
+      ...complaint,
+      reactionCount: interactions.filter((item) => item.post_id === complaint.id && item.kind === "reaction").length,
+      commentCount: interactions.filter((item) => item.post_id === complaint.id && item.kind === "comment").length,
+      comments: interactions.filter((item) => item.post_id === complaint.id && item.kind === "comment").map((item) => ({ id: item.id, body: item.body, authorName: item.user.full_name })),
+    }));
+
+    return res.status(200).json({ complaints: formattedComplaints });
   } catch (error) {
     console.error("List complaints error:", error);
     return res.status(500).json({ error: "An error occurred fetching complaints list" });

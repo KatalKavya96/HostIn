@@ -298,3 +298,36 @@ This file tracks what was requested, what decisions were made, what changed, and
   - Decision, if any
   - Changes made
   - Verification performed
+# 2026-06-27 - Tenant, Finance, Community, Mess, and Contact Refinement
+
+## Requested
+
+- Make tenant selection toggleable and animate the details panel in and out.
+- Move tenant creation into a dismissible popup opened from the Add tenant button.
+- Close the popup using its close button, backdrop, Escape key, or browser back navigation.
+- Color approved gate passes green, rejected red, and pending grey.
+- Remove stale visitor viewing actions.
+- Replace the generic dues page with paid/unpaid filters, amount sorting, tenant search, and useful totals.
+- Generate fixed monthly rent dues automatically for active room assignments.
+- Add persistent reactions and comments to community posts for all workspace roles.
+- Replace the generic mess page with a seven-day, four-meal table editable by owner, warden, and staff/mess manager roles.
+- Simplify staff contacts to name, role, and phone number.
+
+## Implemented
+
+- Reworked the Tenants directory into a full-width list with a stable animated details slot and click-again deselection.
+- Added an accessible tenant creation modal with backdrop, close, Escape, and popstate dismissal behavior.
+- Added semantic gate-pass and payment status colors and retained visitor records as view-only rows.
+- Added a live Dues & Payments screen using `/api/dues`, including search, paid/not-paid filtering, amount sorting, and paid/outstanding summaries.
+- Made `GET /api/dues` idempotently materialize the current month rent due from each active tenant's assigned room rent.
+- Added `CommunityInteraction` persistence, migration, interaction endpoint, reaction toggling, comment creation, and feed counts/comments.
+- Added a live weekly mess table using existing mess APIs and permitted staff/mess managers to maintain draft menus.
+- Added a minimal live contact directory using the staff contacts API.
+- Removed generic overview/workflow/action panels from Finance, Mess, and Staff Contacts.
+
+## Verification
+
+- Prisma schema formatted and client generated successfully.
+- Server TypeScript production build passed.
+- Client Next.js production build passed.
+- Applied the community interaction migration successfully to the configured Neon PostgreSQL database.

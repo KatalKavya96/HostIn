@@ -71,6 +71,12 @@ export const handleListAnnouncements = async (req: AuthorizedRequest, res: Respo
       },
     });
 
+    const interactions = await prisma.communityInteraction.findMany({
+      where: { org_id: orgId, post_type: "announcements", post_id: { in: announcements.map((item) => item.id) } },
+      include: { user: { select: { full_name: true } } },
+      orderBy: { created_at: "asc" },
+    });
+
     const formattedAnnouncements = announcements.map((ann) => ({
       id: ann.id,
       title: ann.title,
@@ -82,6 +88,9 @@ export const handleListAnnouncements = async (req: AuthorizedRequest, res: Respo
       publisherPhoto: ann.created_by_user.profile_photo_url,
       isRead: ann.reads.length > 0,
       readAt: ann.reads.length > 0 ? ann.reads[0].read_at : null,
+      reactionCount: interactions.filter((item) => item.post_id === ann.id && item.kind === "reaction").length,
+      commentCount: interactions.filter((item) => item.post_id === ann.id && item.kind === "comment").length,
+      comments: interactions.filter((item) => item.post_id === ann.id && item.kind === "comment").map((item) => ({ id: item.id, body: item.body, authorName: item.user.full_name })),
     }));
 
     return res.status(200).json({

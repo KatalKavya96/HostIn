@@ -22,7 +22,7 @@ export const handleGetMessMenu = async (req: AuthorizedRequest, res: Response) =
   const normalizedMonday = getUTCWeekMonday(date);
 
   try {
-    const isPrivileged = req.userOrgRole === "owner" || req.userOrgRole === "warden";
+    const isPrivileged = req.userOrgRole === "owner" || req.userOrgRole === "warden" || req.userOrgRole === "staff";
 
     const menu = await prisma.messMenu.findFirst({
       where: {
