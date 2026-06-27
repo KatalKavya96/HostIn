@@ -8,7 +8,7 @@ const router = Router();
 router.post(
   "/",
   authenticateJWT as any,
-  checkOrgAccess(["owner", "warden"]) as any,
+  checkOrgAccess(["owner", "warden", "staff"]) as any,
   handleCreateMessMenu as any
 );
 

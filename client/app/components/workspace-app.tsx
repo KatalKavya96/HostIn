@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { ColorThemeToggle, useColorTheme } from "./theme-system";
 
 type Role = "owner" | "warden" | "guard" | "security" | "staff" | "tenant" | "parent" | "platform";
@@ -86,7 +86,8 @@ type TenantRecord = TenantOption & {
 
 type GatePassRecord = {
   id: string;
-  reason: string;
+  reason?: string;
+  purpose?: string;
   destination: string;
   status: string;
   expected_return_time: string;
@@ -104,18 +105,33 @@ type VisitorRecord = {
   tenant?: { full_name: string };
 };
 
+type DueRecord = {
+  id: string;
+  amount: string | number;
+  amount_paid: string | number;
+  due_date: string;
+  due_type: string;
+  status: string;
+  tenant: { full_name: string };
+};
+
+type StaffContactRecord = { id: string; name: string; phone: string; role_type: string };
+type MessItem = { id: string; day_of_week: string; meal_type: string; items: string[] };
+type PaymentRecord = { id: string; amount: string | number; payment_method: string; paid_at: string; status: string; due: { due_type: string; amount: string | number; due_date: string } };
+type NotificationRecord = { id: string; title: string; body: string; status: string; created_at: string };
+
 const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api";
 
 const modules: Module[] = [
   { id: "overview", title: "Overview", description: "Occupancy, requests, dues, and service queue.", stat: "84%", meta: "occupancy", roles: ["owner", "warden"], action: "Refresh", endpoint: "/metrics", method: "GET" },
-  { id: "rooms", title: "Rooms", description: "Floors, room capacity, availability, and room history.", stat: "42", meta: "rooms", roles: ["owner", "warden", "guard", "security", "tenant", "parent"], action: "Create room", endpoint: "/rooms", method: "POST" },
+  { id: "rooms", title: "Rooms", description: "Floors, room capacity, availability, and room history.", stat: "42", meta: "rooms", roles: ["owner", "warden", "parent"], action: "Create room", endpoint: "/rooms", method: "POST" },
   { id: "tenants", title: "Tenants", description: "Create tenant accounts, search residents, and view profiles.", stat: "118", meta: "active", roles: ["owner", "warden"], action: "Add tenant", endpoint: "/tenants", method: "POST" },
   { id: "gate", title: "Gate Passes", description: "View outing requests and approve or reject pending passes.", stat: "9", meta: "pending", roles: ["owner", "warden", "guard", "security", "tenant"], action: "Review passes", endpoint: "/gate-passes", method: "GET" },
-  { id: "visitors", title: "Visitors", description: "View visitor records and filter by date, day, or visitor name.", stat: "6", meta: "today", roles: ["owner", "warden", "guard", "security", "tenant"], action: "View visitors", endpoint: "/visitors", method: "GET" },
+  { id: "visitors", title: "Visitors", description: "View visitor records and filter by date, day, or visitor name.", stat: "6", meta: "today", roles: ["owner", "warden", "guard", "security"], action: "View visitors", endpoint: "/visitors", method: "GET" },
   { id: "finance", title: "Dues & Payments", description: "Raise dues, collect payments, and set reminders.", stat: "₹2.4L", meta: "due", roles: ["owner", "warden", "tenant", "parent"], action: "Create due", endpoint: "/dues", method: "POST" },
-  { id: "community", title: "Community", description: "Announcements, complaints, and lost/found discussion feed.", stat: "3", meta: "threads", roles: ["owner", "warden", "guard", "security", "staff", "tenant", "parent"], action: "Create post", endpoint: "/announcements", method: "POST" },
+  { id: "community", title: "Community", description: "Announcements, complaints, and lost/found discussion feed.", stat: "3", meta: "threads", roles: ["owner", "warden", "staff", "tenant", "parent"], action: "Create post", endpoint: "/announcements", method: "POST" },
   { id: "mess", title: "Mess", description: "Weekly menu, publishing, feedback, and summary.", stat: "78%", meta: "rating", roles: ["owner", "warden", "staff", "tenant"], action: "Edit menu", endpoint: "/mess-menus", method: "POST" },
-  { id: "documents", title: "Documents", description: "Upload and verify resident documents.", stat: "21", meta: "pending", roles: ["owner", "warden", "tenant"], action: "Upload", endpoint: "/documents", method: "POST" },
+  { id: "documents", title: "Documents", description: "Upload and verify resident documents.", stat: "21", meta: "pending", roles: ["owner", "warden"], action: "Upload", endpoint: "/documents", method: "POST" },
   { id: "staff", title: "Staff Contacts", description: "Emergency contacts and staff directory.", stat: "18", meta: "contacts", roles: ["owner", "warden", "guard", "security", "staff", "tenant"], action: "Add contact", endpoint: "/staff-contacts", method: "POST" },
   { id: "parents", title: "Parent Portal", description: "Ward details, privacy, dues, and movement visibility.", stat: "64", meta: "linked", roles: ["parent"], action: "View ward", endpoint: "/parents/ward", method: "GET" },
   { id: "platform", title: "Platform", description: "Organizations, subscription plans, and feature toggles.", stat: "27", meta: "orgs", roles: ["platform"], action: "View orgs", endpoint: "/platform/organizations", method: "GET" },
@@ -156,7 +172,7 @@ function titleFromSlug(slug: string) {
 
 export function WorkspaceApp({ workspace, role }: { workspace: string; role: string }) {
   const normalizedRole = normalizeRole(role);
-  const { themeKey, setThemeKey } = useColorTheme();
+  const { customColor, setCustomColor, themeKey, setThemeKey } = useColorTheme();
   const [login, setLogin] = useState<LoginState | null>(null);
   const [activeId, setActiveId] = useState<SectionId>(normalizedRole === "platform" ? "platform" : "overview");
   const [message, setMessage] = useState("Login to open this private workspace.");
@@ -299,10 +315,8 @@ export function WorkspaceApp({ workspace, role }: { workspace: string; role: str
             </button>
           ))}
         </nav>
-        <ColorThemeToggle themeKey={themeKey} onChange={setThemeKey} />
-        <button className="notificationIconButton" onClick={() => setMessage("Notifications opened from the top bar.")} type="button" aria-label="Notifications">
-          <span>12</span>
-        </button>
+        <ColorThemeToggle customColor={customColor} onCustomColor={setCustomColor} themeKey={themeKey} onChange={setThemeKey} />
+        <NotificationMenu accessToken={login.accessToken} orgId={login.orgId} />
         <button className="gradientButton" onClick={syncModule} type="button">
           Sync
         </button>
@@ -336,9 +350,13 @@ export function WorkspaceApp({ workspace, role }: { workspace: string; role: str
             <div>
               <p className="crumb">{propertyName} / {roleLabel(role)}</p>
               <h2>{activeModule.title}</h2>
-              <p>{activeModule.description}</p>
+              <p>{normalizedRole === "tenant" && activeModule.id === "gate" ? "Request an outing pass and review your permanent pass history." : normalizedRole === "tenant" && activeModule.id === "finance" ? "Review your dues, pay securely, and keep your payment history." : activeModule.description}</p>
             </div>
-            <button className="gradientButton" onClick={syncModule} type="button">{activeModule.action}</button>
+            {activeModule.id === "tenants" ? (
+              <button className="gradientButton" onClick={() => window.dispatchEvent(new Event("hostin:add-tenant"))} type="button">Add tenant</button>
+            ) : !["finance", "mess", "staff", "visitors", "gate", "community"].includes(activeModule.id) ? (
+              <button className="gradientButton" onClick={syncModule} type="button">{activeModule.action}</button>
+            ) : null}
           </div>
 
           <div className="syncBanner">
@@ -357,11 +375,17 @@ export function WorkspaceApp({ workspace, role }: { workspace: string; role: str
           ) : activeModule.id === "tenants" && ["owner", "warden"].includes(normalizedRole) ? (
             <TenantsSection accessToken={login.accessToken} orgId={login.orgId} workspace={workspace} />
           ) : activeModule.id === "gate" ? (
-            <GatePassSection accessToken={login.accessToken} canModerate={["owner", "warden"].includes(normalizedRole)} orgId={login.orgId} />
+            <GatePassSection accessToken={login.accessToken} canModerate={["owner", "warden", "guard"].includes(normalizedRole)} isTenant={normalizedRole === "tenant"} orgId={login.orgId} />
           ) : activeModule.id === "visitors" ? (
             <VisitorsSection accessToken={login.accessToken} canCreate={normalizedRole === "guard"} orgId={login.orgId} />
           ) : activeModule.id === "community" ? (
             <CommunitySection accessToken={login.accessToken} canCreate={["owner", "warden"].includes(normalizedRole)} orgId={login.orgId} role={normalizedRole} />
+          ) : activeModule.id === "finance" ? (
+            <FinanceSection accessToken={login.accessToken} isTenant={normalizedRole === "tenant"} orgId={login.orgId} />
+          ) : activeModule.id === "mess" ? (
+            <MessSection accessToken={login.accessToken} canManage={["owner", "warden", "staff"].includes(normalizedRole)} orgId={login.orgId} />
+          ) : activeModule.id === "staff" ? (
+            <StaffContactsSection accessToken={login.accessToken} orgId={login.orgId} />
           ) : (
             <div className="productGrid">
               <section className="panel statGridPanel">
@@ -414,14 +438,43 @@ function PanelTitle({ title, meta }: { title: string; meta: string }) {
   );
 }
 
+function NotificationMenu({ accessToken, orgId }: { accessToken: string; orgId: string }) {
+  const [open, setOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const unread = notifications.filter((item) => item.status !== "read").length;
+
+  async function loadNotifications() {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${apiBase}/notifications`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } });
+      const data = await response.json().catch(() => ({}));
+      setNotifications(data.notifications ?? []);
+    } finally { setIsLoading(false); }
+  }
+  useEffect(() => { loadNotifications(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [accessToken, orgId]);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => { if (!(event.target as Element).closest(".notificationMenu")) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  async function markRead(id: string) {
+    await fetch(`${apiBase}/notifications/${id}/read`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } });
+    await loadNotifications();
+  }
+  return <div className={`notificationMenu ${open ? "isOpen" : ""}`}><button aria-expanded={open} aria-label="Notifications" className="notificationIconButton" onClick={() => setOpen((current) => !current)} type="button">{unread ? <span>{unread}</span> : null}</button>{open ? <div className="notificationPopover"><div className="notificationPopoverHeader"><strong>Notifications</strong><small>{unread} unread</small></div>{isLoading ? <DirectorySkeleton /> : notifications.length ? notifications.map((item) => <button className={item.status === "read" ? "notificationItem" : "notificationItem unread"} key={item.id} onClick={() => markRead(item.id)} type="button"><strong>{item.title}</strong><p>{item.body}</p><small>{formatDateTime(item.created_at)}</small></button>) : <EmptyPanel title="All caught up" copy="New updates will appear here." />}</div> : null}</div>;
+}
+
 function TenantsSection({ accessToken, orgId, workspace }: { accessToken: string; orgId: string; workspace: string }) {
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
-  const selectedTenant = tenants.find((tenant) => tenant.userId === selectedUserId) ?? tenants[0];
+  const selectedTenant = tenants.find((tenant) => tenant.userId === selectedUserId);
   const filteredTenants = tenants.filter((tenant) => {
     const query = search.toLowerCase().trim();
     if (!query) return true;
@@ -437,7 +490,7 @@ function TenantsSection({ accessToken, orgId, workspace }: { accessToken: string
       const data = await response.json().catch(() => ({}));
       const nextTenants = data.tenants ?? [];
       setTenants(nextTenants);
-      setSelectedUserId((current) => current || nextTenants[0]?.userId || "");
+      setSelectedUserId((current) => nextTenants.some((tenant: TenantRecord) => tenant.userId === current) ? current : "");
     } catch {
       console.info("Tenants could not load.");
       setTenants([]);
@@ -450,6 +503,24 @@ function TenantsSection({ accessToken, orgId, workspace }: { accessToken: string
     loadTenants();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, orgId]);
+
+  useEffect(() => {
+    const open = () => setShowCreate(true);
+    const close = () => setShowCreate(false);
+    window.addEventListener("hostin:add-tenant", open);
+    window.addEventListener("popstate", close);
+    return () => {
+      window.removeEventListener("hostin:add-tenant", open);
+      window.removeEventListener("popstate", close);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showCreate) return;
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && setShowCreate(false);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [showCreate]);
 
   async function createTenant(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -472,6 +543,7 @@ function TenantsSection({ accessToken, orgId, workspace }: { accessToken: string
       });
       if (response.ok) {
         event.currentTarget.reset();
+        setShowCreate(false);
         await loadTenants();
       }
       console.info(response.ok ? "Tenant created." : "Tenant create failed.");
@@ -484,17 +556,6 @@ function TenantsSection({ accessToken, orgId, workspace }: { accessToken: string
 
   return (
     <div className="tenantExperience">
-      <section className="panel tenantCreatePanel">
-        <PanelTitle title="Add tenant" meta="No room assignment here" />
-        <form className="tenantCreateForm" onSubmit={createTenant}>
-          <label><span>Full name</span><input name="fullName" placeholder="Tenant full name" required /></label>
-          <label><span>Email</span><input name="email" placeholder={`tenant@${workspace}.hostin.local`} required type="email" /></label>
-          <label><span>Phone</span><input name="phone" placeholder="10 digit phone" required /></label>
-          <label><span>Temporary password</span><input name="password" placeholder={`${workspace}@123`} type="text" /></label>
-          <button className="gradientButton fullButton" disabled={isCreating} type="submit">{isCreating ? "Creating..." : "Create tenant"}</button>
-        </form>
-      </section>
-
       <section className="panel tenantDirectoryPanel">
         <div className="roomsToolbar tenantToolbar">
           <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search tenant name or room number..." />
@@ -508,7 +569,7 @@ function TenantsSection({ accessToken, orgId, workspace }: { accessToken: string
                 <button
                   className={selectedTenant?.userId === tenant.userId ? "active tenantListItem" : "tenantListItem"}
                   key={tenant.userId}
-                  onClick={() => setSelectedUserId(tenant.userId)}
+                  onClick={() => setSelectedUserId((current) => current === tenant.userId ? "" : tenant.userId)}
                   type="button"
                 >
                   <span>{getInitials(tenant.fullName)}</span>
@@ -520,12 +581,31 @@ function TenantsSection({ accessToken, orgId, workspace }: { accessToken: string
                 </button>
               ))}
             </div>
-            <TenantDetailCard tenant={selectedTenant} />
+            <div className={`tenantDetailSlot ${selectedTenant ? "isVisible" : ""}`}>
+              {selectedTenant ? <TenantDetailCard tenant={selectedTenant} /> : null}
+            </div>
           </div>
         ) : (
           <EmptyPanel title="No tenants found" copy="Create a tenant account first, then assign rooms from the Rooms board." />
         )}
       </section>
+      {showCreate ? (
+        <div className="modalBackdrop" onMouseDown={() => setShowCreate(false)} role="presentation">
+          <section aria-labelledby="add-tenant-title" aria-modal="true" className="panel tenantCreateModal" onMouseDown={(event) => event.stopPropagation()} role="dialog">
+            <div className="modalHeader">
+              <div><h3 id="add-tenant-title">Add tenant</h3><p>Create the account now and assign a room later.</p></div>
+              <button aria-label="Close add tenant" onClick={() => setShowCreate(false)} type="button">×</button>
+            </div>
+            <form className="tenantCreateForm" onSubmit={createTenant}>
+              <label><span>Full name</span><input name="fullName" placeholder="Tenant full name" required /></label>
+              <label><span>Email</span><input name="email" placeholder={`tenant@${workspace}.hostin.local`} required type="email" /></label>
+              <label><span>Phone</span><input name="phone" placeholder="10 digit phone" required /></label>
+              <label><span>Temporary password</span><input name="password" placeholder={`${workspace}@123`} type="text" /></label>
+              <button className="gradientButton fullButton" disabled={isCreating} type="submit">{isCreating ? "Creating..." : "Create tenant"}</button>
+            </form>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -552,7 +632,7 @@ function TenantDetailCard({ tenant }: { tenant?: TenantRecord }) {
   );
 }
 
-function GatePassSection({ accessToken, canModerate, orgId }: { accessToken: string; canModerate: boolean; orgId: string }) {
+function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { accessToken: string; canModerate: boolean; isTenant: boolean; orgId: string }) {
   const [passes, setPasses] = useState<GatePassRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -586,6 +666,23 @@ function GatePassSection({ accessToken, canModerate, orgId }: { accessToken: str
     if (response.ok) await loadPasses();
   }
 
+  async function requestPass(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await fetch(`${apiBase}/gate-passes`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId }, body: JSON.stringify({ purpose: form.get("purpose"), destination: form.get("destination"), expectedOutTime: form.get("expectedOutTime"), expectedReturnTime: form.get("expectedReturnTime") }) });
+    if (response.ok) { event.currentTarget.reset(); await loadPasses(); }
+  }
+
+  async function cancelPass(id: string) {
+    const response = await fetch(`${apiBase}/gate-passes/${id}/cancel`, { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } });
+    if (response.ok) await loadPasses();
+  }
+
+  const pendingPasses = passes.filter((pass) => pass.status === "pending");
+  const historyPasses = passes.filter((pass) => pass.status !== "pending");
+
+  if (isTenant) return <div className="gateTenantExperience"><section className="panel"><PanelTitle title="Request gate pass" meta="Send for approval" /><form className="gatePassForm" onSubmit={requestPass}><input name="purpose" placeholder="Purpose" required /><input name="destination" placeholder="Destination" required /><label><span>Leaving</span><input name="expectedOutTime" type="datetime-local" required /></label><label><span>Expected return</span><input name="expectedReturnTime" type="datetime-local" required /></label><button className="gradientButton" type="submit">Request gate pass</button></form></section><section className="panel feedPanel"><PanelTitle title="Pending requests" meta={`${pendingPasses.length} awaiting review`} />{isLoading ? <DirectorySkeleton /> : pendingPasses.length ? <div className="recordList">{pendingPasses.map((pass) => <GatePassRow key={pass.id} pass={pass}><button className="cancelTextButton" onClick={() => cancelPass(pass.id)} type="button">Cancel request</button></GatePassRow>)}</div> : <EmptyPanel title="No pending requests" copy="Your new requests will appear here until reviewed." />}<PanelTitle title="Gate pass history" meta="Permanent record" />{historyPasses.length ? <div className="recordList">{historyPasses.map((pass) => <GatePassRow key={pass.id} pass={pass} />)}</div> : <EmptyPanel title="No history yet" copy="Approved, rejected, cancelled, and completed passes will remain here." />}</section></div>;
+
   return (
     <section className="panel feedPanel">
       <PanelTitle title="Gate pass requests" meta={canModerate ? "Approve / Reject" : "View only"} />
@@ -595,7 +692,7 @@ function GatePassSection({ accessToken, canModerate, orgId }: { accessToken: str
             <article className="actionRecord" key={pass.id}>
               <div>
                 <strong>{pass.tenant?.full_name ?? "Tenant"}</strong>
-                <small>{pass.reason} · {pass.destination}</small>
+                <small>{pass.purpose ?? pass.reason} · {pass.destination}</small>
                 <small>Return: {formatDateTime(pass.expected_return_time)}</small>
               </div>
               <div>
@@ -615,12 +712,17 @@ function GatePassSection({ accessToken, canModerate, orgId }: { accessToken: str
   );
 }
 
+function GatePassRow({ children, pass }: { children?: ReactNode; pass: GatePassRecord }) {
+  return <article className="actionRecord"><div><strong>{pass.purpose ?? pass.reason}</strong><small>{pass.destination}</small><small>Return: {formatDateTime(pass.expected_return_time)}</small></div><div><span className={`statusPill ${pass.status}`}>{pass.status}</span>{children}</div></article>;
+}
+
 function VisitorsSection({ accessToken, canCreate, orgId }: { accessToken: string; canCreate: boolean; orgId: string }) {
   const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
   const [tenantOptions, setTenantOptions] = useState<TenantOption[]>([]);
   const [filter, setFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
 
   async function loadVisitors() {
     setIsLoading(true);
@@ -650,6 +752,13 @@ function VisitorsSection({ accessToken, canCreate, orgId }: { accessToken: strin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, canCreate, orgId]);
 
+  useEffect(() => {
+    if (!showCreate) return;
+    const close = (event: KeyboardEvent) => event.key === "Escape" && setShowCreate(false);
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [showCreate]);
+
   async function createVisitor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -668,6 +777,7 @@ function VisitorsSection({ accessToken, canCreate, orgId }: { accessToken: strin
     console.info(response.ok ? "Visitor created." : "Visitor creation failed.");
     if (response.ok) {
       event.currentTarget.reset();
+      setShowCreate(false);
       await loadVisitors();
     }
   }
@@ -681,7 +791,7 @@ function VisitorsSection({ accessToken, canCreate, orgId }: { accessToken: strin
 
   return (
     <section className="panel feedPanel">
-      <PanelTitle title="Visitor records" meta={canCreate ? "Guard creation enabled" : "View and filter"} />
+      <div className="sectionActionHeader"><h3>Visitor records</h3>{canCreate ? <button className="gradientButton" onClick={() => setShowCreate(true)} type="button">Add visitor</button> : null}</div>
       <div className="roomsToolbar visitorToolbar">
         <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter by visitor name..." />
         <input value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} type="date" />
@@ -691,22 +801,20 @@ function VisitorsSection({ accessToken, canCreate, orgId }: { accessToken: strin
           <option value="tomorrow">Tomorrow</option>
         </select>
       </div>
-      {canCreate ? (
-        <form className="communityComposer visitorCreateForm" onSubmit={createVisitor}>
-          <select name="tenantId" required>
-            <option value="">Host tenant</option>
+      {showCreate ? <div className="modalBackdrop" onMouseDown={() => setShowCreate(false)}><section aria-modal="true" className="panel visitorCreateModal" onMouseDown={(event) => event.stopPropagation()} role="dialog"><div className="modalHeader"><div><h3>Add visitor</h3><p>Register a visitor against their host tenant.</p></div><button aria-label="Close visitor form" onClick={() => setShowCreate(false)} type="button">×</button></div><form className="visitorModalForm" onSubmit={createVisitor}>
+          <label className="formSpan"><span>Host tenant</span><select name="tenantId" required>
+            <option value="">Select host tenant</option>
             {tenantOptions.map((tenant) => (
               <option key={tenant.userId} value={tenant.userId}>{tenant.fullName}</option>
             ))}
-          </select>
-          <input name="visitorName" placeholder="Visitor name" required />
-          <input name="visitorPhone" placeholder="Visitor phone" required />
-          <input name="visitorRelation" placeholder="Relation" required />
-          <input name="purpose" placeholder="Purpose" required />
-          <input name="expectedVisitTime" type="datetime-local" required />
-          <button className="gradientButton" type="submit">Create visitor</button>
-        </form>
-      ) : null}
+          </select></label>
+          <label><span>Visitor name</span><input name="visitorName" placeholder="Enter full name" required /></label>
+          <label><span>Phone number</span><input name="visitorPhone" placeholder="Enter phone number" required /></label>
+          <label><span>Relation</span><input name="visitorRelation" placeholder="Friend, parent, delivery..." required /></label>
+          <label><span>Expected visit</span><input name="expectedVisitTime" type="datetime-local" required /></label>
+          <label className="formSpan"><span>Purpose</span><input name="purpose" placeholder="Reason for visit" required /></label>
+          <button className="gradientButton fullButton" type="submit">Create visitor</button>
+        </form></section></div> : null}
       {isLoading ? <DirectorySkeleton /> : filteredVisitors.length ? (
         <div className="recordList">
           {filteredVisitors.map((visitor) => (
@@ -716,7 +824,6 @@ function VisitorsSection({ accessToken, canCreate, orgId }: { accessToken: strin
                 <small>{visitor.purpose} · Host: {visitor.tenant?.full_name ?? "Tenant"}</small>
                 <small>{formatDateTime(visitor.expected_visit_time)}</small>
               </div>
-              <span className={`statusPill ${visitor.status}`}>{visitor.status}</span>
             </article>
           ))}
         </div>
@@ -729,23 +836,29 @@ function CommunitySection({ accessToken, canCreate, orgId, role }: { accessToken
   const [tab, setTab] = useState<"announcements" | "complaints" | "lost">("announcements");
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [complaints, setComplaints] = useState<any[]>([]);
+  const [lostPosts, setLostPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [commentsFor, setCommentsFor] = useState("");
   const visibleTabs = role === "tenant" || role === "parent" || role === "guard" ? ["announcements", "lost"] : ["announcements", "complaints", "lost"];
 
   async function loadCommunity() {
     setIsLoading(true);
     try {
-      const [announcementsResponse, complaintsResponse] = await Promise.all([
+      const [announcementsResponse, complaintsResponse, lostResponse] = await Promise.all([
         fetch(`${apiBase}/announcements`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }),
         fetch(`${apiBase}/complaints`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }),
+        fetch(`${apiBase}/community/lost-found`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }),
       ]);
       const announcementData = await announcementsResponse.json().catch(() => ({}));
       const complaintData = await complaintsResponse.json().catch(() => ({}));
+      const lostData = await lostResponse.json().catch(() => ({}));
       setAnnouncements(announcementData.announcements ?? []);
       setComplaints(complaintData.complaints ?? []);
+      setLostPosts(lostData.posts ?? []);
     } catch {
       setAnnouncements([]);
       setComplaints([]);
+      setLostPosts([]);
     } finally {
       setIsLoading(false);
     }
@@ -756,7 +869,7 @@ function CommunitySection({ accessToken, canCreate, orgId, role }: { accessToken
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, orgId]);
 
-  const feedItems = tab === "announcements" ? announcements : tab === "complaints" ? complaints : [];
+  const feedItems = tab === "announcements" ? announcements : tab === "complaints" ? complaints : lostPosts;
 
   return (
     <section className="panel feedPanel">
@@ -770,7 +883,7 @@ function CommunitySection({ accessToken, canCreate, orgId, role }: { accessToken
           ))}
         </div>
       </div>
-      {canCreate ? <CommunityComposer tab={tab} accessToken={accessToken} orgId={orgId} onPosted={loadCommunity} /> : null}
+      {canCreate || (role === "tenant" && tab === "lost") ? <CommunityComposer tab={tab} accessToken={accessToken} orgId={orgId} onPosted={loadCommunity} /> : null}
       {isLoading ? <DirectorySkeleton /> : feedItems.length ? (
         <div className="communityFeed">
           {feedItems.map((item) => (
@@ -780,19 +893,53 @@ function CommunitySection({ accessToken, canCreate, orgId, role }: { accessToken
                 <small>{item.publisherName ?? item.tenant?.full_name ?? "Community"} · {formatDateTime(item.createdAt ?? item.created_at)}</small>
               </div>
               <p>{item.body ?? item.description ?? "No description added."}</p>
-              <div className="postActions"><button type="button">React</button><button type="button">Comment</button></div>
+              {item.imageUrls?.length ? <div className="postImages">{item.imageUrls.map((url: string, index: number) => <img alt={`Lost or found attachment ${index + 1}`} key={`${item.id}-${index}`} src={url} />)}</div> : null}
+              {role !== "tenant" || tab === "announcements" ? <div className="postActions">
+                <button onClick={() => interact(item.id, tab, "reaction", "like")} type="button">Like <span>{item.reactionCount ?? 0}</span></button>
+                <button onClick={() => setCommentsFor((current) => current === item.id ? "" : item.id)} type="button">Comment <span>{item.commentCount ?? 0}</span></button>
+              </div> : null}
+              {(role !== "tenant" || tab === "announcements") && commentsFor === item.id ? (
+                <form className="commentComposer" onSubmit={(event) => submitComment(event, item.id, tab)}>
+                  <input name="comment" placeholder="Write a comment..." required />
+                  <button type="submit">Post</button>
+                  {(item.comments ?? []).map((comment: any) => <p key={comment.id}><strong>{comment.authorName}</strong> {comment.body}</p>)}
+                </form>
+              ) : null}
             </article>
           ))}
         </div>
-      ) : <EmptyPanel title="No posts yet" copy={tab === "lost" ? "Lost/found backend is not connected yet, so this feed starts empty." : "Community posts will appear here."} />}
+      ) : <EmptyPanel title="No posts yet" copy="Community posts will appear here." />}
     </section>
   );
+
+  async function interact(postId: string, postType: string, kind: string, body?: string) {
+    const response = await fetch(`${apiBase}/community/interactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+      body: JSON.stringify({ postId, postType, kind, body }),
+    });
+    if (response.ok) await loadCommunity();
+  }
+
+  async function submitComment(event: FormEvent<HTMLFormElement>, postId: string, postType: string) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    await interact(postId, postType, "comment", String(form.get("comment")));
+    event.currentTarget.reset();
+  }
 }
 
 function CommunityComposer({ accessToken, orgId, onPosted, tab }: { accessToken: string; orgId: string; onPosted: () => void; tab: string }) {
   async function submitPost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    if (tab === "lost") {
+      const files = Array.from((form.get("images") as File)?.size ? [form.get("images") as File] : []);
+      const imageUrls = await Promise.all(files.map(fileToDataUrl));
+      const response = await fetch(`${apiBase}/community/lost-found`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId }, body: JSON.stringify({ caption: form.get("body"), imageUrls }) });
+      if (response.ok) { event.currentTarget.reset(); onPosted(); }
+      return;
+    }
     if (tab !== "announcements") {
       console.info("Creation for this community tab needs its backend endpoint.");
       return;
@@ -809,12 +956,112 @@ function CommunityComposer({ accessToken, orgId, onPosted, tab }: { accessToken:
   }
   return (
     <form className="communityComposer" onSubmit={submitPost}>
-      <input name="title" placeholder={`Create ${tab === "lost" ? "lost/found" : tab} post`} required />
+      {tab !== "lost" ? <input name="title" placeholder={`Create ${tab} post`} required /> : null}
       <input name="body" placeholder="Write details..." required />
+      {tab === "lost" ? <label className="imageUploadButton">Add image<input accept="image/*" name="images" type="file" /></label> : null}
       <button className="gradientButton" type="submit">Post</button>
     </form>
   );
 }
+
+function fileToDataUrl(file: File) { return new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); }); }
+
+function FinanceSection({ accessToken, isTenant, orgId }: { accessToken: string; isTenant: boolean; orgId: string }) {
+  const [dues, setDues] = useState<DueRecord[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [checkoutDue, setCheckoutDue] = useState<DueRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState("all");
+  const [sort, setSort] = useState("desc");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setIsLoading(true);
+    Promise.all([
+      fetch(`${apiBase}/dues`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((response) => response.json()),
+      fetch(`${apiBase}/payments`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((response) => response.json()),
+    ])
+      .then(([dueData, paymentData]) => { setDues(dueData.dues ?? []); setPayments(paymentData.payments ?? []); })
+      .catch(() => setDues([]))
+      .finally(() => setIsLoading(false));
+  }, [accessToken, orgId]);
+
+  const visible = dues.filter((due) => {
+    const paid = due.status === "paid";
+    return (status === "all" || (status === "paid" ? paid : !paid)) && due.tenant.full_name.toLowerCase().includes(search.toLowerCase());
+  }).sort((a, b) => (Number(a.amount) - Number(b.amount)) * (sort === "asc" ? 1 : -1));
+  const paidDues = dues.filter((due) => due.status === "paid");
+  const dueDues = dues.filter((due) => due.status !== "paid");
+
+  async function payDue(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!checkoutDue) return;
+    const form = new FormData(event.currentTarget);
+    const remaining = Number(checkoutDue.amount) - Number(checkoutDue.amount_paid);
+    const response = await fetch(`${apiBase}/payments`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId }, body: JSON.stringify({ dueId: checkoutDue.id, amount: remaining, paymentMethod: form.get("paymentMethod"), gateway: "manual" }) });
+    if (response.ok) { setCheckoutDue(null); const [dueData, paymentData] = await Promise.all([fetch(`${apiBase}/dues`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((item) => item.json()), fetch(`${apiBase}/payments`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((item) => item.json())]); setDues(dueData.dues ?? []); setPayments(paymentData.payments ?? []); }
+  }
+
+  if (isTenant) return <section className="tenantBilling"><section className="panel feedPanel"><PanelTitle title="My dues" meta={`${dueDues.length} outstanding`} />{isLoading ? <DirectorySkeleton /> : dueDues.length ? <div className="billGrid">{dueDues.map((due) => { const remaining = Number(due.amount) - Number(due.amount_paid); return <article className="billCard" key={due.id}><div className="billHeader"><div><small>{titleFromSlug(due.due_type)}</small><strong>₹{remaining.toLocaleString("en-IN")}</strong></div><span className={`statusPill ${due.status}`}>{due.status}</span></div><dl><div><dt>Base amount</dt><dd>₹{Number(due.amount).toLocaleString("en-IN")}</dd></div><div><dt>Already paid</dt><dd>- ₹{Number(due.amount_paid).toLocaleString("en-IN")}</dd></div><div><dt>Due date</dt><dd>{new Date(due.due_date).toLocaleDateString("en-IN")}</dd></div><div className="billTotal"><dt>Amount payable</dt><dd>₹{remaining.toLocaleString("en-IN")}</dd></div></dl><button className="gradientButton fullButton" onClick={() => setCheckoutDue(due)} type="button">Pay now</button></article>; })}</div> : <EmptyPanel title="Nothing due" copy="You have no outstanding payments." />}</section><section className="panel feedPanel"><PanelTitle title="Payment history" meta={`${payments.length} payments`} />{payments.length ? <div className="recordList">{payments.map((payment) => <article className="actionRecord" key={payment.id}><div><strong>{titleFromSlug(payment.due.due_type)}</strong><small>{formatDateTime(payment.paid_at)} · {titleFromSlug(payment.payment_method)}</small></div><div className="dueAmount"><strong>₹{Number(payment.amount).toLocaleString("en-IN")}</strong><span className={`statusPill ${payment.status}`}>{payment.status}</span></div></article>)}</div> : <EmptyPanel title="No payments yet" copy="Completed payments and their breakdown will remain here." />}</section>{checkoutDue ? <div className="modalBackdrop" onMouseDown={() => setCheckoutDue(null)}><form className="panel checkoutModal" onMouseDown={(event) => event.stopPropagation()} onSubmit={payDue}><div className="modalHeader"><div><h3>Payment checkout</h3><p>{titleFromSlug(checkoutDue.due_type)}</p></div><button aria-label="Close checkout" onClick={() => setCheckoutDue(null)} type="button">×</button></div><div className="checkoutTotal"><span>Total payable</span><strong>₹{(Number(checkoutDue.amount) - Number(checkoutDue.amount_paid)).toLocaleString("en-IN")}</strong></div><label><span>Payment method</span><select name="paymentMethod" required><option value="upi">UPI</option><option value="card">Card</option><option value="net_banking">Net banking</option></select></label><button className="gradientButton fullButton" type="submit">Pay securely</button><small className="checkoutNote">Payment gateway integration will replace manual confirmation in production.</small></form></div> : null}</section>;
+
+  return (
+    <section className="financeExperience">
+      <div className="financeStats">
+        <Metric label="Paid" value={`₹${sumDues(paidDues)}`} meta={`${countDueTenants(paidDues)} students`} />
+        <Metric label="Due" value={`₹${sumDues(dueDues)}`} meta={`${countDueTenants(dueDues)} students`} />
+      </div>
+      <section className="panel feedPanel">
+        <div className="roomsToolbar financeToolbar">
+          <input onChange={(event) => setSearch(event.target.value)} placeholder="Search tenant name..." value={search} />
+          <select onChange={(event) => setStatus(event.target.value)} value={status}><option value="all">All payments</option><option value="paid">Paid</option><option value="due">Not paid</option></select>
+          <select onChange={(event) => setSort(event.target.value)} value={sort}><option value="desc">Price: high to low</option><option value="asc">Price: low to high</option></select>
+        </div>
+        {isLoading ? <DirectorySkeleton /> : visible.length ? <div className="recordList">{visible.map((due) => (
+          <article className="actionRecord" key={due.id}><div><strong>{due.tenant.full_name}</strong><small>{titleFromSlug(due.due_type)} · Due {new Date(due.due_date).toLocaleDateString("en-IN")}</small></div><div className="dueAmount"><strong>₹{Number(due.amount).toLocaleString("en-IN")}</strong><span className={`statusPill ${due.status}`}>{due.status}</span></div></article>
+        ))}</div> : <EmptyPanel title="No dues found" copy="Monthly rent dues appear automatically after a tenant is assigned a room." />}
+      </section>
+    </section>
+  );
+}
+
+function MessSection({ accessToken, canManage, orgId }: { accessToken: string; canManage: boolean; orgId: string }) {
+  const mealTypes = ["breakfast", "lunch", "snacks", "dinner"];
+  const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const [items, setItems] = useState<MessItem[]>([]);
+  const [weekStart, setWeekStart] = useState(getMondayInput());
+  const [isLoading, setIsLoading] = useState(true);
+
+  async function loadMenu() {
+    setIsLoading(true);
+    const response = await fetch(`${apiBase}/mess-menus?date=${weekStart}`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } });
+    const data = await response.json().catch(() => ({}));
+    setItems(data.menu?.items ?? []);
+    setIsLoading(false);
+  }
+  useEffect(() => { loadMenu(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [weekStart, accessToken, orgId]);
+
+  function valueFor(day: string, meal: string) { return items.find((item) => item.day_of_week === day && item.meal_type === meal)?.items.join(", ") ?? ""; }
+  async function saveCell(day: string, meal: string, value: string) {
+    const next = items.filter((item) => !(item.day_of_week === day && item.meal_type === meal));
+    const payload = [...next, { day_of_week: day, meal_type: meal, items: value.split(",").map((part) => part.trim()).filter(Boolean) }];
+    const response = await fetch(`${apiBase}/mess-menus`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId }, body: JSON.stringify({ weekStartDate: weekStart, items: payload.map((item) => ({ dayOfWeek: item.day_of_week, mealType: item.meal_type, items: item.items })) }) });
+    if (response.ok) await loadMenu();
+  }
+
+  return <section className="panel feedPanel"><div className="menuHeader"><PanelTitle title="Weekly meal plan" meta="Breakfast · Lunch · Snacks · Dinner" /><label>Week of<input onChange={(event) => setWeekStart(event.target.value)} type="date" value={weekStart} /></label></div>{isLoading ? <DirectorySkeleton /> : <div className="messTableWrap"><table className="messTable"><thead><tr><th>Date</th><th>Day</th>{mealTypes.map((meal) => <th key={meal}>{titleFromSlug(meal)}</th>)}</tr></thead><tbody>{days.map((day, dayIndex) => <tr key={day}><td>{dateForWeekDay(weekStart, dayIndex)}</td><th>{titleFromSlug(day)}</th>{mealTypes.map((meal) => <td key={meal}>{canManage ? <textarea aria-label={`${day} ${meal}`} defaultValue={valueFor(day, meal)} key={`${weekStart}-${day}-${meal}-${valueFor(day, meal)}`} onBlur={(event) => saveCell(day, meal, event.target.value)} placeholder="Add meal" /> : <span>{valueFor(day, meal) || "Not planned"}</span>}</td>)}</tr>)}</tbody></table></div>}</section>;
+}
+
+function StaffContactsSection({ accessToken, orgId }: { accessToken: string; orgId: string }) {
+  const [contacts, setContacts] = useState<StaffContactRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => { fetch(`${apiBase}/staff-contacts`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((response) => response.json()).then((data) => setContacts(data.staffContacts ?? [])).catch(() => setContacts([])).finally(() => setIsLoading(false)); }, [accessToken, orgId]);
+  return <section className="panel feedPanel"><PanelTitle title="Contact directory" meta={`${contacts.length} contacts`} />{isLoading ? <DirectorySkeleton /> : contacts.length ? <div className="contactGrid">{contacts.map((contact) => <article className="contactCard" key={contact.id}><span>{getInitials(contact.name)}</span><div><strong>{contact.name}</strong><small>{titleFromSlug(contact.role_type)}</small></div><a href={`tel:${contact.phone}`}>{contact.phone}</a></article>)}</div> : <EmptyPanel title="No contacts" copy="Staff names and phone numbers will appear here." />}</section>;
+}
+
+function sumDues(dues: DueRecord[]) { return dues.reduce((sum, due) => sum + Math.max(0, Number(due.amount) - Number(due.amount_paid)), 0).toLocaleString("en-IN"); }
+function countDueTenants(dues: DueRecord[]) { return new Set(dues.map((due) => due.tenant.full_name)).size; }
+function getMondayInput() { const date = new Date(); const day = date.getDay(); date.setDate(date.getDate() - (day === 0 ? 6 : day - 1)); return date.toISOString().slice(0, 10); }
+function dateForWeekDay(weekStart: string, offset: number) { const date = new Date(`${weekStart}T00:00:00`); date.setDate(date.getDate() + offset); return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" }); }
 
 function RoomsBoard({
   accessToken,

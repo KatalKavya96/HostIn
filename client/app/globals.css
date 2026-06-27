@@ -72,6 +72,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+body, .topbar, .panel, .gradientButton, .outlineButton, .navItem, .workspaceBadge, .metricCard, .statusPill {
+  transition: background-color 260ms ease, border-color 260ms ease, color 220ms ease, box-shadow 260ms ease;
+}
+
 button,
 input,
 select {
@@ -570,11 +574,12 @@ button {
   border-radius: 999px;
   display: grid;
   gap: 0;
-  grid-template-columns: repeat(2, minmax(86px, 1fr));
+  grid-template-columns: repeat(3, minmax(112px, 1fr));
   min-height: 46px;
   padding: 4px;
   position: relative;
-  width: 196px;
+  flex: 0 0 360px;
+  width: 360px;
 }
 
 .themeToggleKnob {
@@ -586,10 +591,11 @@ button {
   position: absolute;
   top: 4px;
   transition: transform 240ms ease;
-  width: calc(50% - 4px);
+  width: calc(33.333% - 2.5px);
 }
 
-.themeToggle button {
+.themeToggle button,
+.customThemePicker {
   align-items: center;
   background: transparent;
   border: 0;
@@ -606,7 +612,8 @@ button {
   z-index: 1;
 }
 
-.themeToggle button.active {
+.themeToggle button.active,
+.customThemePicker.active {
   color: var(--foreground);
 }
 
@@ -617,6 +624,31 @@ button {
   display: block;
   height: 13px;
   width: 13px;
+}
+
+.customThemePicker input[type="color"] {
+  appearance: none !important;
+  clip-path: inset(50%);
+  cursor: pointer;
+  height: 1px !important;
+  left: 50%;
+  min-height: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 !important;
+  position: absolute;
+  top: 50%;
+  width: 1px !important;
+}
+
+.customThemePicker i {
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.14);
+  display: block;
+  flex: 0 0 14px;
+  height: 14px;
+  width: 14px;
 }
 
 .notificationIconButton {
@@ -657,11 +689,24 @@ button {
   width: 20px;
 }
 
+.notificationMenu { position: relative; }
+.notificationIconButton { transition: box-shadow 180ms ease, transform 180ms ease; }
+.notificationIconButton:hover, .notificationMenu.isOpen .notificationIconButton { box-shadow: 0 0 0 5px var(--accent-focus), 0 0 0 2px var(--accent); transform: translateY(-1px); }
+.notificationPopover { background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 60px rgba(16,24,40,.18); max-height: 460px; overflow: auto; padding: 10px; position: absolute; right: 0; top: calc(100% + 12px); width: min(380px, calc(100vw - 24px)); z-index: 80; }
+.notificationPopoverHeader { align-items: center; display: flex; justify-content: space-between; padding: 10px 10px 14px; }
+.notificationPopoverHeader small { color: var(--muted); }
+.notificationItem { background: transparent; border: 0; border-top: 1px solid var(--soft-line); display: block; padding: 13px 10px; text-align: left; width: 100%; }
+.notificationItem.unread { background: var(--accent-soft); }
+.notificationItem strong, .notificationItem small { display: block; }
+.notificationItem p { color: var(--muted); line-height: 1.4; margin: 5px 0; }
+.notificationItem small { color: var(--muted); }
+
 .tenantExperience {
-  display: grid;
-  gap: 22px;
-  grid-template-columns: 360px minmax(0, 1fr);
+  display: block !important;
+  width: 100%;
 }
+
+.tenantDirectoryPanel { width: 100%; }
 
 .tenantCreateForm {
   display: grid;
@@ -681,6 +726,56 @@ button {
   gap: 22px;
   grid-template-columns: minmax(0, 1fr) 340px;
 }
+
+.tenantList { min-width: 0; }
+
+.tenantDetailSlot {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(12px);
+  transition: max-width 260ms ease, opacity 180ms ease, transform 260ms ease;
+}
+
+.tenantDetailSlot.isVisible {
+  max-width: 340px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.modalBackdrop {
+  align-items: center;
+  background: rgba(16, 24, 40, 0.45);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 100;
+  animation: modalFade 160ms ease both;
+}
+
+.tenantCreateModal {
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  width: min(520px, 100%);
+  animation: modalRise 220ms ease both;
+}
+
+.modalHeader {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.modalHeader h3, .modalHeader p { margin: 0; }
+.modalHeader h3 { font-size: 26px; }
+.modalHeader p { color: var(--muted); margin-top: 5px; }
+.modalHeader button { background: #f2f4f7; border: 0; border-radius: 50%; font-size: 24px; height: 38px; width: 38px; }
+
+@keyframes modalFade { from { opacity: 0; } }
+@keyframes modalRise { from { opacity: 0; transform: translateY(14px) scale(.98); } }
 
 .tenantToolbar {
   grid-template-columns: 1fr;
@@ -827,6 +922,17 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.sectionActionHeader { align-items: flex-start; display: flex; justify-content: space-between; }
+.sectionActionHeader .panelTitle { flex: 1; }
+.sectionActionHeader h3 { font-size: 24px; margin: 8px 0 0; }
+.visitorCreateModal { animation: modalRise 220ms ease both; max-height: calc(100vh - 64px); overflow: auto; padding: 32px !important; width: min(860px, calc(100vw - 48px)) !important; }
+.visitorModalForm { display: grid !important; gap: 22px; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.visitorModalForm label { display: block; min-width: 0; }
+.visitorModalForm label > span { color: var(--muted); display: block; font-size: 13px; font-weight: 900; margin-bottom: 9px; }
+.visitorModalForm input, .visitorModalForm select { min-height: 56px; }
+.visitorModalForm .formSpan { grid-column: 1 / -1; }
+.visitorModalForm button { grid-column: 1 / -1; }
+
 .communityHeader {
   align-items: center;
   display: flex;
@@ -882,6 +988,66 @@ button {
   color: var(--muted);
   font-weight: 800;
 }
+
+.commentComposer { display: grid; gap: 8px; grid-template-columns: 1fr auto; }
+.commentComposer button { background: var(--accent); border: 0; border-radius: 8px; color: #fff; font-weight: 900; padding: 0 16px; }
+.commentComposer p { background: #f8fafc; border-radius: 8px; grid-column: 1 / -1; padding: 10px 12px; }
+.commentComposer p strong { display: inline; margin-right: 6px; }
+
+.statusPill.approved, .statusPill.paid, .statusPill.successful, .statusPill.completed { background: #ecfdf3; color: #067647; }
+.statusPill.rejected, .statusPill.overdue { background: #fff1f3; color: #e31b54; }
+.statusPill.pending, .statusPill.unpaid, .statusPill.partial { background: #f2f4f7; color: #475467; }
+.statusPill.cancelled { background: #f2f4f7; color: #667085; }
+
+.gateTenantExperience, .tenantBilling { display: grid; gap: 20px; }
+.gatePassForm { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.gatePassForm label span { color: var(--muted); display: block; font-size: 12px; font-weight: 900; margin-bottom: 6px; }
+.gatePassForm button { grid-column: 1 / -1; }
+.cancelTextButton { background: transparent; border: 0; color: #d92d20; display: block; font-size: 12px; font-weight: 900; margin-top: 9px; }
+
+.billGrid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.billCard { border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.billHeader { align-items: flex-start; display: flex; justify-content: space-between; }
+.billHeader small, .billHeader strong { display: block; }
+.billHeader small { color: var(--muted); font-weight: 900; }
+.billHeader strong { font-size: 28px; margin-top: 6px; }
+.billCard dl { border-bottom: 1px dashed var(--line); border-top: 1px dashed var(--line); margin: 18px 0; padding: 12px 0; }
+.billCard dl div { display: flex; justify-content: space-between; padding: 6px 0; }
+.billCard dt { color: var(--muted); }
+.billCard dd { font-weight: 900; margin: 0; }
+.billCard .billTotal { border-top: 1px solid var(--soft-line); margin-top: 8px; padding-top: 12px; }
+.checkoutModal { width: min(460px, 100%); }
+.checkoutModal > label span { color: var(--muted); display: block; font-size: 12px; font-weight: 900; margin: 18px 0 6px; }
+.checkoutTotal { align-items: center; background: var(--accent-soft); border-radius: 10px; display: flex; justify-content: space-between; padding: 18px; }
+.checkoutTotal strong { color: var(--accent-strong); font-size: 28px; }
+.checkoutNote { color: var(--muted); display: block; margin-top: 12px; text-align: center; }
+
+.imageUploadButton { align-items: center; background: #f2f4f7; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; display: inline-flex; font-size: 13px; font-weight: 900; justify-content: center; min-height: 44px; padding: 0 14px; }
+.imageUploadButton input { display: none; }
+.postImages { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.postImages img { aspect-ratio: 16 / 10; border-radius: 10px; object-fit: cover; width: 100%; }
+
+.financeExperience { display: grid; gap: 20px; }
+.financeStats { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.financeToolbar { grid-template-columns: minmax(220px, 1fr) 180px 210px; }
+.dueAmount { align-items: flex-end; display: flex; flex-direction: column; gap: 8px; }
+.dueAmount > strong { font-size: 18px; }
+
+.menuHeader { align-items: center; display: flex; justify-content: space-between; }
+.menuHeader label { color: var(--muted); display: grid; font-size: 12px; font-weight: 900; gap: 5px; }
+.messTableWrap { overflow-x: auto; }
+.messTable { border-collapse: collapse; min-width: 960px; width: 100%; }
+.messTable th, .messTable td { border: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }
+.messTable thead th { background: #f8fafc; }
+.messTable textarea { border: 0; min-height: 76px; padding: 8px; resize: vertical; width: 100%; }
+.messTable td span { color: var(--muted); line-height: 1.5; }
+
+.contactGrid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.contactCard { align-items: center; border: 1px solid var(--line); border-radius: 12px; display: grid; gap: 12px; grid-template-columns: 44px 1fr auto; padding: 14px; }
+.contactCard > span { align-items: center; background: var(--accent-soft); border-radius: 50%; color: var(--accent-strong); display: flex; font-weight: 900; height: 44px; justify-content: center; }
+.contactCard strong, .contactCard small { display: block; }
+.contactCard small { color: var(--muted); margin-top: 4px; }
+.contactCard a { color: var(--accent-strong); font-weight: 900; }
 
 .communityPost p {
   line-height: 1.5;
@@ -1985,6 +2151,8 @@ select:focus {
   .tenantDirectoryLayout,
   .communityComposer,
   .visitorCreateForm,
+  .billGrid,
+  .gatePassForm,
   .roomsBoardLayout {
     grid-template-columns: 1fr;
   }
@@ -2123,5 +2291,20 @@ select:focus {
 
   .roomCells {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .visitorCreateModal {
+    padding: 24px !important;
+    width: calc(100vw - 28px) !important;
+  }
+
+  .visitorModalForm {
+    gap: 16px;
+    grid-template-columns: 1fr !important;
+  }
+
+  .visitorModalForm .formSpan,
+  .visitorModalForm button {
+    grid-column: 1;
   }
 }

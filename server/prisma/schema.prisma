@@ -30,12 +30,12 @@ enum PlanStatus {
 }
 
 enum OrgRole {
-  owner   // PG/hostel owner (Admin in requirements)
-  warden  // Warden — manages day-to-day
-  guard   // Guard — gate pass, student in/out
-  staff   // Mess cook, housekeeping, maintenance
-  tenant  // Tenant / Student
-  parent  // Parent of tenant
+  owner // PG/hostel owner (Admin in requirements)
+  warden // Warden — manages day-to-day
+  guard // Guard — gate pass, student in/out
+  staff // Mess cook, housekeeping, maintenance
+  tenant // Tenant / Student
+  parent // Parent of tenant
 }
 
 enum InviteStatus {
@@ -213,6 +213,11 @@ enum NotificationStatus {
   read
 }
 
+enum CommunityInteractionKind {
+  reaction
+  comment
+}
+
 enum TenantStatus {
   onboarding
   active
@@ -241,14 +246,14 @@ model PlatformUser {
 
 /// Tracks Super Admin actions on the platform (separate from org-level audit).
 model PlatformAuditLog {
-  id              String   @id @default(uuid()) @db.Uuid
-  platform_user_id String  @db.Uuid
-  action          String   @db.VarChar(255)
-  entity_type     String   @db.VarChar(255) // e.g. "organization", "plan"
-  entity_id       String?  @db.Uuid
-  details         Json?    @db.JsonB
-  ip_address      String?  @db.VarChar(45)
-  created_at      DateTime @default(now()) @db.Timestamp(6)
+  id               String   @id @default(uuid()) @db.Uuid
+  platform_user_id String   @db.Uuid
+  action           String   @db.VarChar(255)
+  entity_type      String   @db.VarChar(255) // e.g. "organization", "plan"
+  entity_id        String?  @db.Uuid
+  details          Json?    @db.JsonB
+  ip_address       String?  @db.VarChar(45)
+  created_at       DateTime @default(now()) @db.Timestamp(6)
 
   platform_user PlatformUser @relation(fields: [platform_user_id], references: [id])
 
@@ -326,30 +331,32 @@ model Organization {
   created_at      DateTime   @default(now()) @db.Timestamp(6)
   updated_at      DateTime   @updatedAt @db.Timestamp(6)
 
-  plan             Plan           @relation(fields: [plan_id], references: [id])
-  group            PropertyGroup? @relation(fields: [group_id], references: [id])
-  org_features     OrgFeature[]
-  user_org_roles   UserOrgRole[]
-  onboarding_invites OnboardingInvite[]
-  floors           Floor[]
-  rooms            Room[]
-  tenant_profiles  TenantProfile[]
-  parent_profiles  ParentProfile[]
-  gate_passes      GatePass[]
-  visitors         Visitor[]
-  mess_menus       MessMenu[]
-  mess_feedback    MessFeedback[]
-  dues             Due[]
-  payments         Payment[]
-  complaints       Complaint[]
-  announcements    Announcement[]
-  documents        Document[]
-  staff_contacts   StaffContact[]
-  notifications    Notification[]
-  audit_logs       AuditLog[]
-  platform_metrics PlatformMetric[]
-  due_reminder_config DueReminderConfig?
+  plan                    Plan                    @relation(fields: [plan_id], references: [id])
+  group                   PropertyGroup?          @relation(fields: [group_id], references: [id])
+  org_features            OrgFeature[]
+  user_org_roles          UserOrgRole[]
+  onboarding_invites      OnboardingInvite[]
+  floors                  Floor[]
+  rooms                   Room[]
+  tenant_profiles         TenantProfile[]
+  parent_profiles         ParentProfile[]
+  gate_passes             GatePass[]
+  visitors                Visitor[]
+  mess_menus              MessMenu[]
+  mess_feedback           MessFeedback[]
+  dues                    Due[]
+  payments                Payment[]
+  complaints              Complaint[]
+  announcements           Announcement[]
+  documents               Document[]
+  staff_contacts          StaffContact[]
+  notifications           Notification[]
+  audit_logs              AuditLog[]
+  platform_metrics        PlatformMetric[]
+  due_reminder_config     DueReminderConfig?
   room_assignment_history RoomAssignmentHistory[]
+  community_interactions  CommunityInteraction[]
+  lost_found_posts        LostFoundPost[]
 
   @@map("organizations")
 }
@@ -389,34 +396,36 @@ model User {
   user_org_roles            UserOrgRole[]
   onboarding_invites        OnboardingInvite[]
   tenant_profiles           TenantProfile[]
-  parent_profiles_as_parent ParentProfile[]           @relation("ParentUser")
-  parent_profiles_as_tenant ParentProfile[]           @relation("ParentTenant")
-  org_features_updated      OrgFeature[]              @relation("OrgFeatureUpdatedBy")
-  gate_passes               GatePass[]                @relation("GatePassTenant")
-  gate_passes_approved      GatePass[]                @relation("GatePassApprovedBy")
-  gate_passes_checked       GatePass[]                @relation("GatePassCheckedBy")
-  visitors                  Visitor[]                 @relation("VisitorTenant")
-  visitors_approved         Visitor[]                 @relation("VisitorApprovedBy")
-  mess_menus_created        MessMenu[]                @relation("MessMenuCreatedBy")
-  mess_feedback             MessFeedback[]            @relation("MessFeedbackTenant")
-  dues                      Due[]                     @relation("DueTenant")
-  dues_created              Due[]                     @relation("DueCreatedBy")
-  payments                  Payment[]                 @relation("PaymentTenant")
-  payments_paid             Payment[]                 @relation("PaymentPaidBy")
-  complaints                Complaint[]               @relation("ComplaintTenant")
-  complaints_assigned       Complaint[]               @relation("ComplaintAssignedTo")
+  parent_profiles_as_parent ParentProfile[]         @relation("ParentUser")
+  parent_profiles_as_tenant ParentProfile[]         @relation("ParentTenant")
+  org_features_updated      OrgFeature[]            @relation("OrgFeatureUpdatedBy")
+  gate_passes               GatePass[]              @relation("GatePassTenant")
+  gate_passes_approved      GatePass[]              @relation("GatePassApprovedBy")
+  gate_passes_checked       GatePass[]              @relation("GatePassCheckedBy")
+  visitors                  Visitor[]               @relation("VisitorTenant")
+  visitors_approved         Visitor[]               @relation("VisitorApprovedBy")
+  mess_menus_created        MessMenu[]              @relation("MessMenuCreatedBy")
+  mess_feedback             MessFeedback[]          @relation("MessFeedbackTenant")
+  dues                      Due[]                   @relation("DueTenant")
+  dues_created              Due[]                   @relation("DueCreatedBy")
+  payments                  Payment[]               @relation("PaymentTenant")
+  payments_paid             Payment[]               @relation("PaymentPaidBy")
+  complaints                Complaint[]             @relation("ComplaintTenant")
+  complaints_assigned       Complaint[]             @relation("ComplaintAssignedTo")
   complaint_updates         ComplaintUpdate[]
-  announcements_created     Announcement[]            @relation("AnnouncementCreatedBy")
+  announcements_created     Announcement[]          @relation("AnnouncementCreatedBy")
   announcement_reads        AnnouncementRead[]
-  documents                 Document[]                @relation("DocumentTenant")
-  documents_uploaded        Document[]                @relation("DocumentUploadedBy")
-  documents_verified        Document[]                @relation("DocumentVerifiedBy")
-  staff_contacts            StaffContact[]            @relation("StaffContactUser")
+  documents                 Document[]              @relation("DocumentTenant")
+  documents_uploaded        Document[]              @relation("DocumentUploadedBy")
+  documents_verified        Document[]              @relation("DocumentVerifiedBy")
+  staff_contacts            StaffContact[]          @relation("StaffContactUser")
   notifications             Notification[]
   audit_logs                AuditLog[]
   property_groups           PropertyGroup[]
   refresh_tokens            RefreshToken[]
-  room_assignment_history   RoomAssignmentHistory[]   @relation("RoomAssignmentTenant")
+  room_assignment_history   RoomAssignmentHistory[] @relation("RoomAssignmentTenant")
+  community_interactions    CommunityInteraction[]
+  lost_found_posts          LostFoundPost[]
 
   @@map("users")
 }
@@ -505,9 +514,9 @@ model Room {
   created_at        DateTime   @default(now()) @db.Timestamp(6)
   updated_at        DateTime   @updatedAt @db.Timestamp(6)
 
-  organization    Organization            @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  floor           Floor                   @relation(fields: [floor_id], references: [id])
-  tenant_profiles TenantProfile[]
+  organization       Organization            @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  floor              Floor                   @relation(fields: [floor_id], references: [id])
+  tenant_profiles    TenantProfile[]
   assignment_history RoomAssignmentHistory[]
 
   @@unique([org_id, room_number])
@@ -647,8 +656,8 @@ model MessMenu {
   created_at      DateTime @default(now()) @db.Timestamp(6)
   updated_at      DateTime @updatedAt @db.Timestamp(6)
 
-  organization    Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  created_by_user User         @relation("MessMenuCreatedBy", fields: [created_by], references: [id])
+  organization    Organization   @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  created_by_user User           @relation("MessMenuCreatedBy", fields: [created_by], references: [id])
   items           MessMenuItem[]
 
   @@unique([org_id, week_start_date])
@@ -746,7 +755,7 @@ model Payment {
 model DueReminderConfig {
   id             String   @id @default(uuid()) @db.Uuid
   org_id         String   @unique @db.Uuid
-  reminder_days  Int[]    // e.g. [1, 5, 10] — days of month to send reminders
+  reminder_days  Int[] // e.g. [1, 5, 10] — days of month to send reminders
   send_whatsapp  Boolean  @default(true)
   send_push      Boolean  @default(true)
   send_sms       Boolean  @default(false)
@@ -778,9 +787,9 @@ model Complaint {
   created_at  DateTime          @default(now()) @db.Timestamp(6)
   updated_at  DateTime          @updatedAt @db.Timestamp(6)
 
-  organization     Organization     @relation(fields: [org_id], references: [id], onDelete: Cascade)
-  tenant           User             @relation("ComplaintTenant", fields: [tenant_id], references: [id])
-  assigned_to_user User?            @relation("ComplaintAssignedTo", fields: [assigned_to], references: [id])
+  organization     Organization      @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  tenant           User              @relation("ComplaintTenant", fields: [tenant_id], references: [id])
+  assigned_to_user User?             @relation("ComplaintAssignedTo", fields: [assigned_to], references: [id])
   updates          ComplaintUpdate[]
 
   @@index([org_id, status])
@@ -840,22 +849,54 @@ model AnnouncementRead {
   @@map("announcement_reads")
 }
 
+model CommunityInteraction {
+  id         String                   @id @default(uuid()) @db.Uuid
+  org_id     String                   @db.Uuid
+  user_id    String                   @db.Uuid
+  post_id    String                   @db.Uuid
+  post_type  String                   @db.VarChar(32)
+  kind       CommunityInteractionKind
+  body       String?                  @db.Text
+  created_at DateTime                 @default(now()) @db.Timestamp(6)
+
+  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([org_id, post_type, post_id])
+  @@map("community_interactions")
+}
+
+model LostFoundPost {
+  id         String   @id @default(uuid()) @db.Uuid
+  org_id     String   @db.Uuid
+  author_id  String   @db.Uuid
+  caption    String   @db.Text
+  image_urls String[] @db.Text
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [author_id], references: [id], onDelete: Cascade)
+
+  @@index([org_id, created_at])
+  @@map("lost_found_posts")
+}
+
 // ─────────────────────────────────────────────
 // DOCUMENTS
 // ─────────────────────────────────────────────
 
 model Document {
-  id          String   @id @default(uuid()) @db.Uuid
-  org_id      String   @db.Uuid
-  tenant_id   String   @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  org_id      String    @db.Uuid
+  tenant_id   String    @db.Uuid
   doc_type    DocType
-  file_url    String   @db.Text
-  file_name   String   @db.VarChar(255)
-  uploaded_by String   @db.Uuid
-  is_verified Boolean  @default(false)
-  verified_by String?  @db.Uuid
+  file_url    String    @db.Text
+  file_name   String    @db.VarChar(255)
+  uploaded_by String    @db.Uuid
+  is_verified Boolean   @default(false)
+  verified_by String?   @db.Uuid
   verified_at DateTime? @db.Timestamp(6)
-  created_at  DateTime @default(now()) @db.Timestamp(6)
+  created_at  DateTime  @default(now()) @db.Timestamp(6)
 
   organization     Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
   tenant           User         @relation("DocumentTenant", fields: [tenant_id], references: [id])
@@ -900,7 +941,7 @@ model Notification {
   title          String              @db.VarChar(255)
   body           String              @db.Text
   type           NotificationType
-  reference_id   String?             @db.Uuid   // links to the entity (gate pass, complaint, etc.)
+  reference_id   String?             @db.Uuid // links to the entity (gate pass, complaint, etc.)
   reference_type String?             @db.VarChar(255)
   channel        NotificationChannel @default(in_app)
   status         NotificationStatus  @default(pending)

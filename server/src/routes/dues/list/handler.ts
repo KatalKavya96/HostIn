@@ -28,6 +28,20 @@ export const handleListDues = async (req: AuthorizedRequest, res: Response) => {
   }
 
   try {
+    if (userRole === "owner" || userRole === "warden") {
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+      const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1));
+      const profiles = await prisma.tenantProfile.findMany({ where: { org_id: orgId, is_active: true }, include: { room: true } });
+      for (const profile of profiles) {
+        const existing = await prisma.due.findFirst({ where: { org_id: orgId, tenant_id: profile.user_id, due_type: "rent", billing_month: { gte: monthStart, lt: monthEnd } } });
+        if (!existing) {
+          const dueDate = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), Math.min(10, new Date(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 0).getUTCDate())));
+          await prisma.due.create({ data: { org_id: orgId, tenant_id: profile.user_id, due_type: "rent", amount: profile.room.monthly_rent, amount_paid: 0, description: "Monthly room rent", due_date: dueDate, billing_month: monthStart, status: "unpaid", created_by: userId as string } });
+        }
+      }
+    }
     const dues = await prisma.due.findMany({
       where: whereClause,
       include: {
