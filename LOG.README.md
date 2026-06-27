@@ -331,3 +331,68 @@ This file tracks what was requested, what decisions were made, what changed, and
 - Server TypeScript production build passed.
 - Client Next.js production build passed.
 - Applied the community interaction migration successfully to the configured Neon PostgreSQL database.
+# 2026-06-27 - Tenant Role Privacy and Workflows
+
+## Requested
+
+- Remove Rooms, Visitors, and Documents from the tenant navigation.
+- Let tenants create gate passes, cancel only pending requests, and retain reviewed passes as immutable history.
+- Give tenants private dues, detailed bill-style checkout, payment controls, and payment history.
+- Restrict tenants to reacting/commenting on announcements while allowing them to publish lost/found posts with images and captions.
+- Add calendar dates to the weekly mess table.
+- Turn the notification icon into a usable dropdown with a themed hover ring.
+
+## Implemented
+
+- Removed cross-tenant room visibility and tenant access to visitor records and document navigation.
+- Added a tenant gate-pass request form, pending queue, server-enforced pending cancellation endpoint, and permanent status history.
+- Added a tenant-only billing experience with itemized dues, outstanding totals, payment-method checkout, and private payment history.
+- Added persisted lost/found posts with caption and image attachment support plus a dedicated migration and API.
+- Kept tenant reactions/comments on announcements only; lost/found publishing is separate.
+- Added a date column derived from the selected mess-menu week.
+- Added a live notification popover with unread count, outside-click dismissal, mark-as-read behavior, and theme-colored focus/hover ring.
+- Applied the lost/found PostgreSQL migration to the configured Neon database.
+
+## Verification
+
+- Prisma formatting and client generation passed.
+- Server TypeScript production build passed.
+- Client Next.js production build passed.
+# 2026-06-27 - Guard Workspace and Custom Theme Colour
+
+## Requested
+
+- Remove Rooms and Community from the security/guard workspace.
+- Allow security/guards to approve and reject pending gate passes.
+- Move visitor creation from the page into a popup form.
+- Remove visitor approval/status indications from every visitor-record view.
+- Add a custom colour picker to the global dashboard theme control.
+
+## Implemented
+
+- Removed Rooms and Community from both guard and security navigation.
+- Enabled owner, warden, and guard gate-pass moderation while preserving tenant-only request creation.
+- Rebuilt Add Visitor as a dismissible modal with close, backdrop, and Escape behavior.
+- Removed visitor status pills and approval/rejection implications from visitor records.
+- Allowed guards to fetch only the minimal tenant name/id/room data required for visitor registration.
+- Added a persistent Custom theme mode that derives the full accent palette from a colour input.
+- Added pre-hydration custom-theme restoration and smooth transitions across shared themed surfaces.
+
+## Verification
+
+- Client and server production builds passed.
+- Security demo login shows only Gate Passes, Visitors, and Staff Contacts.
+- Gate Passes exposes Approve / Reject moderation for security.
+- Visitor records render without approval/status indicators and expose the Add Visitor modal trigger.
+- The theme control renders Coral, Studio, and the persistent custom colour picker.
+
+### UI Follow-up
+
+- Expanded the three-option colour control and constrained the native picker so global input styles cannot distort it.
+- Increased the visitor modal width, padding, field height, and spacing.
+- Reorganized visitor details into labelled two-column groups with full-width host and purpose rows.
+- Added a single-column responsive visitor form for mobile screens.
+- Fixed custom colour selection by removing the invalid interactive input-inside-button nesting and applying theme updates during both live input and committed changes.
+- Stabilized the custom picker UI by hiding the browser-rendered native swatch and using a controlled circular swatch inside the segmented control.
+- Removed the duplicate custom-colour dot by fully clipping the native input while retaining the single controlled picker swatch.
+- Removed the stale View and filter badge from Visitor records.

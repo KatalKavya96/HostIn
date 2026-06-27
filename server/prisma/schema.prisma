@@ -356,6 +356,7 @@ model Organization {
   due_reminder_config     DueReminderConfig?
   room_assignment_history RoomAssignmentHistory[]
   community_interactions  CommunityInteraction[]
+  lost_found_posts        LostFoundPost[]
 
   @@map("organizations")
 }
@@ -424,6 +425,7 @@ model User {
   refresh_tokens            RefreshToken[]
   room_assignment_history   RoomAssignmentHistory[] @relation("RoomAssignmentTenant")
   community_interactions    CommunityInteraction[]
+  lost_found_posts          LostFoundPost[]
 
   @@map("users")
 }
@@ -862,6 +864,21 @@ model CommunityInteraction {
 
   @@index([org_id, post_type, post_id])
   @@map("community_interactions")
+}
+
+model LostFoundPost {
+  id         String   @id @default(uuid()) @db.Uuid
+  org_id     String   @db.Uuid
+  author_id  String   @db.Uuid
+  caption    String   @db.Text
+  image_urls String[] @db.Text
+  created_at DateTime @default(now()) @db.Timestamp(6)
+
+  organization Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [author_id], references: [id], onDelete: Cascade)
+
+  @@index([org_id, created_at])
+  @@map("lost_found_posts")
 }
 
 // ─────────────────────────────────────────────

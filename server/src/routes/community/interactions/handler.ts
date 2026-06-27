@@ -7,6 +7,7 @@ export const handleCommunityInteraction = async (req: AuthorizedRequest, res: Re
   const userId = req.user?.userId as string;
   const { postId, postType, kind, body } = req.body;
   if (!postId || !["announcements", "complaints", "lost"].includes(postType) || !["reaction", "comment"].includes(kind)) return res.status(400).json({ error: "Invalid interaction" });
+  if (req.userOrgRole === "tenant" && postType !== "announcements") return res.status(403).json({ error: "Tenants can interact with announcements only" });
   if (kind === "comment" && !String(body ?? "").trim()) return res.status(400).json({ error: "Comment is required" });
   try {
     if (kind === "reaction") {

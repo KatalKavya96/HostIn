@@ -107,7 +107,11 @@ export const handleListTenants = async (req: AuthorizedRequest, res: Response) =
       assignmentStatus: "unassigned",
     }));
 
-    return res.status(200).json({ tenants: [...unassignedTenants, ...formattedTenants] });
+    const tenants = [...unassignedTenants, ...formattedTenants];
+    if (req.userOrgRole === "guard") {
+      return res.status(200).json({ tenants: tenants.map((tenant) => ({ userId: tenant.userId, fullName: tenant.fullName, room: tenant.room ? { roomNumber: tenant.room.roomNumber } : null })) });
+    }
+    return res.status(200).json({ tenants });
   } catch (error) {
     console.error("List tenants error:", error);
     return res.status(500).json({ error: "An error occurred fetching tenants list" });

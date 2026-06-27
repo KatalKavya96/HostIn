@@ -23,6 +23,7 @@ import approvePassRoutes from "./routes/gate-passes/approve";
 import checkoutPassRoutes from "./routes/gate-passes/checkout";
 import checkinPassRoutes from "./routes/gate-passes/checkin";
 import listPassRoutes from "./routes/gate-passes/list";
+import cancelPassRoutes from "./routes/gate-passes/cancel";
 import createDueRoutes from "./routes/dues/create";
 import listDueRoutes from "./routes/dues/list";
 import recordPaymentRoutes from "./routes/payments/create";
@@ -35,6 +36,7 @@ import createAnnouncementRoutes from "./routes/announcements/create";
 import listAnnouncementRoutes from "./routes/announcements/list";
 import readAnnouncementRoutes from "./routes/announcements/read";
 import communityInteractionRoutes from "./routes/community/interactions";
+import lostFoundRoutes from "./routes/community/lost-found";
 import createVisitorRoutes from "./routes/visitors/create";
 import approveVisitorRoutes from "./routes/visitors/approve";
 import checkinVisitorRoutes from "./routes/visitors/checkin";
@@ -78,7 +80,7 @@ const PORT = process.env.PORT || 5001;
 
 // Middlewares
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "8mb" }));
 
 // Request logging middleware (for development)
 app.use((req, res, next) => {
@@ -112,6 +114,7 @@ app.use("/api/gate-passes", approvePassRoutes);
 app.use("/api/gate-passes", checkoutPassRoutes);
 app.use("/api/gate-passes", checkinPassRoutes);
 app.use("/api/gate-passes", listPassRoutes);
+app.use("/api/gate-passes", cancelPassRoutes);
 app.use("/api/dues", createDueRoutes);
 app.use("/api/dues", listDueRoutes);
 app.use("/api/payments", recordPaymentRoutes);
@@ -124,6 +127,7 @@ app.use("/api/announcements", createAnnouncementRoutes);
 app.use("/api/announcements", listAnnouncementRoutes);
 app.use("/api/announcements", readAnnouncementRoutes);
 app.use("/api/community/interactions", communityInteractionRoutes);
+app.use("/api/community/lost-found", lostFoundRoutes);
 app.use("/api/visitors", createVisitorRoutes);
 app.use("/api/visitors", approveVisitorRoutes);
 app.use("/api/visitors", checkinVisitorRoutes);
