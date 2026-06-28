@@ -2,12 +2,25 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { ColorThemeToggle, useColorTheme } from "../components/theme-system";
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api";
+const demoPassword = "city-complex@123";
+const demoAccounts = [
+  { role: "Owner", email: "owner@city-complex.hostin.local", detail: "Business, occupancy, dues, and reports" },
+  { role: "Warden", email: "warden@city-complex.hostin.local", detail: "Rooms, residents, passes, and operations" },
+  { role: "Guard", email: "security@city-complex.hostin.local", detail: "Gate passes, visitors, and entry logs" },
+  { role: "Staff", email: "staff@city-complex.hostin.local", detail: "Assigned work and resident support" },
+  { role: "Tenant", email: "tenant@city-complex.hostin.local", detail: "Dues, requests, community, and mess" },
+  { role: "Parent", email: "parent@city-complex.hostin.local", detail: "Ward updates, dues, and announcements" },
+];
 
 export default function LoginPage() {
+  const { customColor, setCustomColor, themeKey, setThemeKey } = useColorTheme();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,9 +50,10 @@ export default function LoginPage() {
 
   return (
     <main className="commonLoginPage">
-      <Link className="brand" href="/">
-        <span>host</span>in<span>.</span>
-      </Link>
+      <header className="commonLoginTop">
+        <Link className="brand" href="/"><span>host</span>in<span>.</span></Link>
+        <ColorThemeToggle customColor={customColor} onCustomColor={setCustomColor} onChange={setThemeKey} themeKey={themeKey} />
+      </header>
       <section>
         <div className="commonLoginIntro">
           <p className="pill">One secure entry</p>
@@ -48,6 +62,30 @@ export default function LoginPage() {
             Use the account issued by your property or the 1Forge team. HostIn will open the correct workspace, role,
             and profile automatically.
           </p>
+          <div className="demoAccounts" id="demo-accounts">
+            <div className="demoAccountsHeader">
+              <div><p className="sectionEyebrow">Explore the demo</p><h2>Try every Hostin role.</h2></div>
+              <span>Click any account to fill the login form</span>
+            </div>
+            <div className="demoAccountGrid">
+              {demoAccounts.map((account) => (
+                <button
+                  key={account.role}
+                  onClick={() => {
+                    setEmail(account.email);
+                    setPassword(demoPassword);
+                    setMessage(`${account.role} demo selected. Continue when ready.`);
+                  }}
+                  type="button"
+                >
+                  <i>{account.role.charAt(0)}</i>
+                  <span><strong>{account.role}</strong><small>{account.detail}</small></span>
+                  <span className="demoCredentials"><code>{account.email}</code><code>{demoPassword}</code></span>
+                  <em>Use account →</em>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <form className="panel commonLoginCard" onSubmit={login}>
           <div>
@@ -59,9 +97,11 @@ export default function LoginPage() {
             <input
               autoComplete="email"
               name="email"
+              onChange={(event) => setEmail(event.target.value)}
               placeholder="your-name@property.hostin.local"
               required
               type="email"
+              value={email}
             />
           </label>
           <label>
@@ -69,9 +109,11 @@ export default function LoginPage() {
             <input
               autoComplete="current-password"
               name="password"
+              onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter your password"
               required
               type="password"
+              value={password}
             />
           </label>
           <button className="gradientButton fullButton" disabled={busy} type="submit">

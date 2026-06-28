@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useColorTheme } from "./components/theme-system";
 
 const pains = [
   ["01", "Rooms are hard to track", "No clear view of vacant beds, occupied rooms, or upcoming availability."],
@@ -42,7 +41,6 @@ const faqs = [
 ];
 
 export default function LandingPage() {
-  useColorTheme();
   const [activeRole, setActiveRole] = useState<keyof typeof roleData>("Owner");
   const [openFaq, setOpenFaq] = useState(0);
   const [submitted, setSubmitted] = useState(false);
@@ -57,6 +55,18 @@ export default function LandingPage() {
       item.style.setProperty("--reveal-delay", `${(index % 5) * 70}ms`);
     });
 
+    const page = document.querySelector<HTMLElement>(".marketingPage");
+    const nav = document.querySelector<HTMLElement>(".marketingNav");
+    let frame = 0;
+    const updateScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const range = document.documentElement.scrollHeight - window.innerHeight;
+        page?.style.setProperty("--scroll-progress", `${range > 0 ? window.scrollY / range : 0}`);
+        nav?.classList.toggle("isScrolled", window.scrollY > 24);
+      });
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -70,17 +80,24 @@ export default function LandingPage() {
     );
 
     items.forEach((item) => observer.observe(item));
-    return () => observer.disconnect();
+    updateScroll();
+    window.addEventListener("scroll", updateScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", updateScroll);
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (
     <main className="marketingPage">
+      <div className="scrollProgress" aria-hidden="true" />
       <header className="topbar marketingNav">
         <a className="brand" href="#top" aria-label="Hostin home"><span>host</span>in<span>.</span></a>
         <nav className="topnav" aria-label="Public navigation">
-          <a href="#features">Features</a><a href="#roles">Who it helps</a><a href="#setup">Setup</a><a href="#pricing">Plans</a>
+          <a href="#features">Features</a><a href="#roles">Who it helps</a><a href="#setup">Setup</a><Link href="/plans">Plans</Link>
         </nav>
-        <div className="navActions"><Link className="navLogin" href="/login">Log in</Link><a className="gradientButton" href="#demo">Book free demo</a></div>
+        <div className="navActions"><Link className="navDemo" href="/login#demo-accounts">Try demo</Link><Link className="navLogin" href="/login">Log in</Link><a className="gradientButton" href="#demo">Book free demo</a></div>
       </header>
 
       <section className="newHero" id="top">
@@ -88,7 +105,7 @@ export default function LandingPage() {
           <p className="pill">Hostel management, handled.</p>
           <h1>Run your PG like a <em>real business.</em></h1>
           <p>Manage rooms, tenants, rent, gate passes, complaints, mess, staff, and parents from one modern platform—set up for you by 1Forge.</p>
-          <div className="heroActions"><a className="gradientButton" href="#demo">Book free demo <span>→</span></a><a className="outlineButton" href="#features">Explore features</a></div>
+          <div className="heroActions"><a className="gradientButton" href="#demo">Book free demo <span>→</span></a><Link className="outlineButton" href="/login#demo-accounts">Try live demo</Link><a className="heroFeatureLink" href="#features">Explore features ↓</a></div>
           <div className="heroProof"><span>✓ Guided setup</span><span>✓ No tech team needed</span><span>✓ Built for Indian hostels</span></div>
         </div>
         <DashboardPreview />
@@ -136,13 +153,11 @@ export default function LandingPage() {
 
       <section className="whySection landingSection"><div><p className="sectionEyebrow">Why Hostin by 1Forge</p><h2>Not a generic CRM wearing a hostel badge.</h2><p>Hostin is designed around how Indian PGs and hostels actually operate—from the front gate to the owner’s reports.</p><a className="gradientButton" href="#demo">Talk to our team</a></div><div className="whyGrid">{["Purpose-built for PGs and hostels","Friendly for owners, staff, tenants, and parents","Setup and training handled by 1Forge","Works for one PG or a growing portfolio","Custom workflows when you need them","Ongoing monthly support available"].map((x,i)=><article key={x}><b>0{i+1}</b><p>{x}</p></article>)}</div></section>
 
-      <section className="pricingSection landingSection" id="pricing"><div className="landingSectionHeader"><p className="sectionEyebrow">Flexible plans</p><h2>A plan that fits your property—not the other way around.</h2><p>Pricing is based on your number of beds, properties, and selected modules.</p></div><div className="pricingGrid">{[["Starter","For small PGs taking the first step online.","Core room and tenant operations"],["Growth","For active hostels with staff and daily workflows.","Operations, gate, payments, and community"],["Custom","For multi-property owners and advanced needs.","Tailored modules, workflows, and support"]].map(([title,copy,detail],i)=><article className={`pricingCard ${i===1?"popular":""}`} key={title}>{i===1&&<span>Most popular</span>}<small>{title}</small><h3>Custom pricing</h3><p>{copy}</p><strong>✓ {detail}</strong><a className={i===1?"gradientButton":"outlineButton"} href="#demo">Get custom pricing</a></article>)}</div></section>
-
       <section className="faqSection landingSection"><div><p className="sectionEyebrow">Frequently asked</p><h2>Questions before you make the switch?</h2><p>Good. A new system should make sense before it becomes part of your day.</p></div><div className="faqList">{faqs.map(([question,answer],index)=><article className={openFaq===index?"open":""} key={question}><button onClick={()=>setOpenFaq(openFaq===index?-1:index)}><span>{question}</span><b>{openFaq===index?"−":"+"}</b></button>{openFaq===index&&<p>{answer}</p>}</article>)}</div></section>
 
       <section className="demoSection landingSection" id="demo"><div className="demoCopy"><p className="sectionEyebrow">Your next, calmer workday</p><h2>Ready to make your hostel easier to manage?</h2><p>Book a free Hostin demo and see how your rooms, tenants, dues, gate passes, complaints, and staff operations can move into one clean system.</p><div className="demoPoint"><b>30 min</b><span>Personal product walkthrough</span></div><div className="demoPoint"><b>₹0</b><span>No-obligation consultation</span></div></div><form className="demoForm" onSubmit={event=>{event.preventDefault();setSubmitted(true)}}>{submitted?<div className="successMessage"><span>✓</span><h3>Demo request received.</h3><p>Thanks—we’ll get in touch to understand your property.</p><button type="button" className="outlineButton" onClick={()=>setSubmitted(false)}>Submit another</button></div>:<><h3>Book your free demo</h3><div className="formRow"><label><span>Your name</span><input required placeholder="Name" /></label><label><span>Phone number</span><input required type="tel" placeholder="+91 98765 43210" /></label></div><div className="formRow"><label><span>City</span><input required placeholder="Bengaluru" /></label><label><span>Property type</span><select defaultValue=""><option value="" disabled>Select type</option><option>PG</option><option>Hostel</option><option>Co-living</option><option>Other</option></select></label></div><label><span>Number of beds</span><input type="number" min="1" placeholder="e.g. 80" /></label><label><span>Anything we should know?</span><textarea placeholder="Tell us about your property or current challenges" /></label><button className="gradientButton fullButton" type="submit">Book free demo →</button><small>By submitting, you agree to be contacted about Hostin.</small></>}</form></section>
 
-      <footer className="marketingFooter"><a className="brand" href="#top"><span>host</span>in<span>.</span></a><p>A fully managed hostel and PG operating system by 1Forge.</p><div><a href="#features">Features</a><a href="#setup">Setup</a><a href="#pricing">Plans</a><Link href="/login">Log in</Link></div><small>© {new Date().getFullYear()} 1Forge. Built for better hostel operations.</small></footer>
+      <footer className="marketingFooter"><a className="brand" href="#top"><span>host</span>in<span>.</span></a><p>A fully managed hostel and PG operating system by 1Forge.</p><div><a href="#features">Features</a><a href="#setup">Setup</a><Link href="/plans">Plans</Link><Link href="/login#demo-accounts">Try demo</Link><Link href="/login">Log in</Link></div><small>© {new Date().getFullYear()} 1Forge. Built for better hostel operations.</small></footer>
     </main>
   );
 }
