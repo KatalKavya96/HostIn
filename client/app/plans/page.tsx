@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const plans = [
   {
@@ -22,7 +23,7 @@ export default function PlansPage() {
   return (
     <main className="marketingPage plansPage">
       <header className="topbar marketingNav">
-        <Link className="brand" href="/"><span>host</span>in<span>.</span></Link>
+        <Link className="brand markBrand" href="/" aria-label="Hostin home"><Image src="/brand/hostin-mark.png" alt="" width={52} height={52} priority /></Link>
         <nav className="topnav" aria-label="Plans navigation">
           <Link href="/#features">Features</Link>
           <Link href="/#roles">Who it helps</Link>
@@ -61,7 +62,7 @@ export default function PlansPage() {
       </section>
 
       <footer className="marketingFooter">
-        <Link className="brand" href="/"><span>host</span>in<span>.</span></Link>
+        <Link className="brand markBrand footerMark" href="/" aria-label="Hostin home"><Image src="/brand/hostin-mark.png" alt="" width={52} height={52} /></Link>
         <p>A fully managed hostel and PG operating system by 1Forge.</p>
         <div><Link href="/">Home</Link><Link href="/login#demo-accounts">Try demo</Link><Link href="/login">Log in</Link></div>
         <small>© {new Date().getFullYear()} 1Forge. Built for better hostel operations.</small>

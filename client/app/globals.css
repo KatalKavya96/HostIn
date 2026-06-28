@@ -252,8 +252,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 * {
@@ -267,7 +267,8 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: auto; }
+html:has(.marketingPage) { scroll-behavior: smooth; }
 .marketingPage { background: #ffffff; overflow: hidden; }
 .marketingPage h1,.marketingPage h2,.marketingPage h3,.marketingPage p { text-wrap: pretty; }
 .marketingNav { height: 76px; padding: 0 max(5vw, 24px); }
@@ -2609,6 +2610,13 @@ select:focus {
 .marketingPage .marketingNav.isScrolled { box-shadow: 0 14px 40px rgba(15,23,42,.09); height: 68px; }
 .navDemo { color: #0f766e; font-size: 14px; font-weight: 900; position: relative; text-decoration: none; }
 .navDemo::before { background: #ccfbf1; border-radius: 50%; content:""; height: 7px; left: -12px; position: absolute; top: 50%; transform: translateY(-50%); width: 7px; }
+.markBrand{align-items:center;display:inline-flex;height:54px;justify-content:center;width:54px}
+.markBrand img{display:block;height:100%;object-fit:contain;width:100%}
+.footerMark{background:#fff;border-radius:15px;padding:7px}
+.previewBrandMark{height:30px;margin-right:auto;object-fit:contain;width:30px}
+.orbitLogo{height:76px;object-fit:contain;width:76px}
+.miniBrandMark{height:36px;margin:0 0 18px 7px;object-fit:contain;width:36px}
+.phoneBrandMark{height:30px;object-fit:contain;width:30px}
 .heroFeatureLink { align-items: center; color: #526175; display: inline-flex; font-size: 13px; font-weight: 900; padding: 0 4px; text-decoration: none; }
 .heroFeatureLink:hover { color: #0f766e; transform: translateY(-2px); }
 .marketingPage .gradientButton:active,.marketingPage .outlineButton:active { transform: translateY(0) scale(.98); }
@@ -2662,15 +2670,55 @@ select:focus {
 .demoAccountGrid strong { font-size:14px; }
 .demoAccountGrid small { color:var(--muted); font-size:9px; line-height:1.4; margin-top:3px; }
 .demoCredentials { display:grid; gap:3px; grid-column:2/4; }
-.demoCredentials code { color:#566276; font-family:var(--font-geist-mono),monospace; font-size:8px; overflow-wrap:anywhere; }
+.demoCredentials code { color:#566276; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:8px; overflow-wrap:anywhere; }
 .demoAccountGrid em { color:var(--accent); font-size:9px; font-style:normal; font-weight:900; grid-column:3; grid-row:1; white-space:nowrap; }
 
 @media(max-width:1180px){
   .plansGrid{grid-template-columns:1fr}.plansGrid .pricingCard{min-height:300px}
   .commonLoginPage>section{grid-template-columns:1fr}.commonLoginCard{max-width:620px;position:static;width:100%}
+  .marketingPage .marketingNav{margin-bottom:52px;overflow:visible}
+  .marketingPage .topnav{align-items:center;background:rgba(255,255,255,.97);border-bottom:1px solid #dbe7e6;border-top:1px solid #edf2f7;box-shadow:0 10px 25px rgba(15,23,42,.05);display:flex;gap:8px;justify-content:center;left:0;overflow-x:auto;padding:7px 16px;position:absolute;right:0;top:100%;z-index:19}
+  .marketingPage .topnav a{border-radius:10px;font-size:12px;padding:10px 14px;text-align:center;white-space:nowrap}
+  .marketingPage .topnav a:hover,.marketingPage .topnav .activeNavLink{background:#e6fffa;color:#0f766e}
 }
 @media(max-width:720px){
   .navDemo{display:none}.heroFeatureLink{justify-content:center;min-height:36px}.scrollProgress{height:2px}
   .plansHero{padding:82px 20px 64px}.plansGrid{padding:50px 20px}.plansNote{align-items:stretch;flex-direction:column;margin:0 20px 60px;padding:28px}.plansNote>div:last-child{align-items:stretch;flex-direction:column}
-  .commonLoginTop{align-items:flex-start;gap:16px}.commonLoginTop .themeToggle{display:flex;transform:scale(.82);transform-origin:top right}.demoAccountGrid{grid-template-columns:1fr}.demoAccountsHeader{align-items:start;flex-direction:column}.demoAccountsHeader>span{text-align:left}.demoAccountGrid>button{grid-template-columns:42px 1fr auto}
+  .commonLoginTop{align-items:stretch;flex-direction:column;gap:18px}.commonLoginTop .themeToggle{display:grid;flex:0 0 auto;grid-template-columns:repeat(3,minmax(0,1fr));transform:none;width:100%}.commonLoginCard{order:-1}.demoAccountGrid{grid-template-columns:1fr}.demoAccountsHeader{align-items:start;flex-direction:column}.demoAccountsHeader>span{text-align:left}.demoAccountGrid>button{grid-template-columns:42px 1fr auto}
+
+  .marketingPage .marketingNav{margin-bottom:48px}
+  .marketingPage .markBrand{height:46px;width:46px}
+  .marketingPage .topnav{justify-content:flex-start;padding-inline:20px}
+  .marketingPage .newHero{padding:72px 24px 82px}
+  .marketingPage .heroCopy .pill{font-size:11px!important;justify-content:center;max-width:100%;padding:12px 16px;text-align:center}
+  .marketingPage .heroCopy h1{font-size:42px;line-height:1;margin:22px 0}
+  .marketingPage .heroCopy>p:not(.pill){font-size:17px;line-height:1.65}
+  .marketingPage .heroActions{gap:12px;margin:30px 0 26px}
+  .marketingPage .heroProof{gap:12px;padding-top:6px}
+  .marketingPage .landingSection{padding:88px 24px 0}
+  .marketingPage .landingSectionHeader{margin-bottom:36px;text-align:left}
+  .marketingPage .landingSectionHeader h2,.marketingPage .splitHeading h2,.marketingPage .showcaseCopy h2,.marketingPage .setupIntro h2,.marketingPage .faqSection>div h2,.marketingPage .demoCopy h2,.marketingPage .whySection>div h2{font-size:36px;line-height:1.08}
+  .marketingPage .splitHeading{gap:18px;margin-bottom:34px}
+  .marketingPage .splitHeading>p,.marketingPage .showcaseCopy p{font-size:16px;line-height:1.7}
+  .marketingPage .painGrid{background:transparent;border:0;gap:14px;overflow:visible}
+  .marketingPage .painCard{border:1px solid #2b4057;border-radius:16px;min-height:0;padding:26px}
+  .marketingPage .painCard h3{margin:28px 0 10px}
+  .marketingPage .featureGrid{gap:16px}
+  .marketingPage .featureCard{min-height:0;padding:26px}
+  .marketingPage .orbit{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr));height:auto;margin-top:32px}
+  .marketingPage .orbitCenter{animation:none;grid-column:1/-1;height:170px;inset:auto;margin:0 auto 16px;position:relative;transform:none;width:170px}
+  .marketingPage .orbitRole{animation:none;inset:auto!important;justify-content:flex-start;position:relative}
+  .marketingPage .showcase{gap:48px}
+  .marketingPage .roomMap,.marketingPage .financeMock{padding:18px}
+  .marketingPage .roleSection{margin-top:88px}
+  .marketingPage .roleTabs{gap:8px;margin-bottom:24px;padding-bottom:5px}
+  .marketingPage .darkSection{gap:44px}
+  .marketingPage .communityMock article{padding:20px 16px}
+  .marketingPage .parentStrip{gap:52px}
+  .marketingPage .setupChecks{gap:16px}
+  .marketingPage .moduleCloud{gap:10px}
+  .marketingPage .audienceGrid{gap:12px}
+  .marketingPage .faqList button{font-size:16px;padding:24px 0}
+  .marketingPage .demoSection{gap:48px;padding-bottom:88px!important}
+  .marketingPage .marketingFooter{gap:32px;padding:56px 24px}
 }

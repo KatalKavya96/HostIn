@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { ColorThemeToggle, useColorTheme } from "../components/theme-system";
 
@@ -17,10 +17,13 @@ const demoAccounts = [
 
 export default function LoginPage() {
   const { customColor, setCustomColor, themeKey, setThemeKey } = useColorTheme();
+  const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => setReady(true), []);
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,6 +73,7 @@ export default function LoginPage() {
             <div className="demoAccountGrid">
               {demoAccounts.map((account) => (
                 <button
+                  aria-label={`Use ${account.role} demo account`}
                   key={account.role}
                   onClick={() => {
                     setEmail(account.email);
@@ -96,6 +100,7 @@ export default function LoginPage() {
             <span>Email address</span>
             <input
               autoComplete="email"
+              disabled={!ready}
               name="email"
               onChange={(event) => setEmail(event.target.value)}
               placeholder="your-name@property.hostin.local"
@@ -108,6 +113,7 @@ export default function LoginPage() {
             <span>Password</span>
             <input
               autoComplete="current-password"
+              disabled={!ready}
               name="password"
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Enter your password"
@@ -116,7 +122,7 @@ export default function LoginPage() {
               value={password}
             />
           </label>
-          <button className="gradientButton fullButton" disabled={busy} type="submit">
+          <button className="gradientButton fullButton" disabled={busy || !ready} type="submit">
             {busy ? "Signing in..." : "Continue"}
           </button>
           <p className="formMessage" role="status">
