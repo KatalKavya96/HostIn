@@ -88,3 +88,5 @@ When a test fails, fix the code or the test fixture. Do not delete assertions, a
 ## Known dependency advisory
 
 The current Next.js dependency includes a moderate PostCSS advisory. `npm audit fix --force` proposes an invalid downgrade to Next 9 and must not be used. Track the upstream Next.js/PostCSS release and upgrade through a reviewed pull request.
+
+END
