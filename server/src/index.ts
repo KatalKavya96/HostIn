@@ -13,6 +13,7 @@ import { prisma } from "./lib/prisma";
 import loginRoutes from "./routes/auth/login";
 import resolveLoginRoutes from "./routes/auth/resolve-login";
 import sessionRoutes from "./routes/auth/session";
+import changePasswordRoutes from "./routes/auth/change-password";
 import meRoutes from "./routes/auth/me";
 import inviteRoutes from "./routes/orgs/invites/create";
 import createFloorRoutes from "./routes/floors/create";
@@ -71,6 +72,8 @@ import getWardDetailsRoutes from "./routes/parents/ward";
 import listAuditLogsRoutes from "./routes/audit-logs/list";
 import roomHistoryRoutes from "./routes/rooms/history";
 import getMetricsRoutes from "./routes/metrics/get";
+import ownerDashboardRoutes from "./routes/owner/dashboard";
+import ownerRequestRoutes from "./routes/owner/requests";
 import platformAuthRoutes from "./routes/platform/auth/login";
 import createPlanRoutes from "./routes/platform/plans/create";
 import listPlanRoutes from "./routes/platform/plans/list";
@@ -78,6 +81,8 @@ import listOrgRoutes from "./routes/platform/organizations/list";
 import updateOrgRoutes from "./routes/platform/organizations/update";
 import featuresOrgRoutes from "./routes/platform/organizations/features";
 import accountOrgRoutes from "./routes/platform/organizations/accounts";
+import controlOrgRoutes from "./routes/platform/organizations/control";
+import platformOnboardingRoutes from "./routes/platform/onboarding";
 
 
 
@@ -126,6 +131,7 @@ app.use("/api/documents", checkFeatureAccess("documents"));
 app.use("/api/auth/login", loginRoutes);
 app.use("/api/auth/resolve-login", resolveLoginRoutes);
 app.use("/api/auth", sessionRoutes);
+app.use("/api/auth/change-password", changePasswordRoutes);
 app.use("/api/auth/me", meRoutes);
 app.use("/api/orgs/invites", inviteRoutes);
 app.use("/api/orgs/:orgId", listMembersRoutes);
@@ -184,6 +190,8 @@ app.use("/api/parents", getWardDetailsRoutes);
 app.use("/api/audit-logs", listAuditLogsRoutes);
 app.use("/api/rooms", roomHistoryRoutes);
 app.use("/api/metrics", getMetricsRoutes);
+app.use("/api/owner/dashboard", ownerDashboardRoutes);
+app.use("/api/owner/requests", ownerRequestRoutes);
 app.use("/api/platform/auth", platformAuthRoutes);
 app.use("/api/platform/plans", createPlanRoutes);
 app.use("/api/platform/plans", listPlanRoutes);
@@ -191,6 +199,8 @@ app.use("/api/platform/organizations", listOrgRoutes);
 app.use("/api/platform/organizations", updateOrgRoutes);
 app.use("/api/platform/organizations", featuresOrgRoutes);
 app.use("/api/platform/organizations", accountOrgRoutes);
+app.use("/api/platform/organizations", controlOrgRoutes);
+app.use("/api/platform/onboarding", platformOnboardingRoutes);
 
 
 
