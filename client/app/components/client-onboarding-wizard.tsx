@@ -30,7 +30,7 @@ export function ClientOnboardingWizard({ accessToken, plans }: { accessToken: st
   const [personDraft, setPersonDraft] = useState<PersonDraft>(emptyPerson);
   const [features, setFeatures] = useState<Record<string, boolean>>({ rooms: true, dues: true, gate_pass: true, visitor_log: true, community: true, mess_menu: true, documents: true, parent_portal: true });
   const [roleDashboards, setRoleDashboards] = useState<Record<string, boolean>>({ owner: true, warden: true, tenant: true, parent: true, guard: true, staff: true });
-  const [branding, setBranding] = useState({ themeColor: "#7c5cff", billingCycle: "monthly", rentDueDay: 5, visitorHours: "08:00–21:00", mealTimings: "08:00, 13:00, 20:00", complaintEscalationHours: 24 });
+  const [branding, setBranding] = useState({ themeColor: "#0f766e", billingCycle: "monthly", rentDueDay: 5, visitorHours: "08:00–21:00", mealTimings: "08:00, 13:00, 20:00", complaintEscalationHours: 24 });
 
   const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
   const floors = useMemo(() => Array.from({ length: Math.max(1, structure.floorCount) }, (_, index) => ({ floorNumber: index + 1, floorName: `Floor ${index + 1}` })), [structure.floorCount]);

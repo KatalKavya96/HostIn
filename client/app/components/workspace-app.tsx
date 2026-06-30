@@ -23,6 +23,8 @@ type SectionId =
   | "visitors"
   | "finance"
   | "community"
+  | "complaints"
+  | "announcements"
   | "mess"
   | "documents"
   | "staff"
@@ -118,6 +120,27 @@ type VisitorRecord = {
   tenant?: { full_name: string };
 };
 
+type ComplaintRecord = {
+  id: string;
+  title?: string;
+  description?: string;
+  category: string;
+  priority: string;
+  status: string;
+  created_at: string;
+  tenant?: { full_name: string };
+};
+
+type DocumentRecord = {
+  id: string;
+  doc_type: string;
+  file_name: string;
+  file_url: string;
+  is_verified: boolean;
+  created_at: string;
+  tenant?: { id: string; full_name: string; email: string };
+};
+
 type DueRecord = {
   id: string;
   amount: string | number;
@@ -210,7 +233,7 @@ const modules: Module[] = [
   {
     id: "overview",
     title: "Dashboard",
-    description: "Business health, pending requests, dues, complaints, and property performance.",
+    description: "What needs your attention today.",
     stat: "84%",
     meta: "occupancy",
     roles: ["owner", "warden"],
@@ -231,7 +254,7 @@ const modules: Module[] = [
   },
   {
     id: "rooms",
-    title: "Rooms & Beds",
+    title: "Rooms",
     description: "Floors, room capacity, availability, and room history.",
     stat: "42",
     meta: "rooms",
@@ -307,12 +330,34 @@ const modules: Module[] = [
     method: "GET",
   },
   {
+    id: "complaints",
+    title: "Complaints",
+    description: "Assign, update, and resolve operational complaints.",
+    stat: "0",
+    meta: "open",
+    roles: ["warden"],
+    action: "Review complaints",
+    endpoint: "/complaints",
+    method: "GET",
+  },
+  {
+    id: "announcements",
+    title: "Announcements",
+    description: "Create and view property announcements.",
+    stat: "0",
+    meta: "posts",
+    roles: ["warden"],
+    action: "Create announcement",
+    endpoint: "/announcements",
+    method: "POST",
+  },
+  {
     id: "finance",
     title: "Dues & Payments",
     description: "Raise dues, collect payments, and set reminders.",
     stat: "₹2.4L",
     meta: "due",
-    roles: ["owner", "warden", "tenant", "parent"],
+    roles: ["owner", "tenant", "parent"],
     action: "Create due",
     endpoint: "/dues",
     method: "POST",
@@ -323,7 +368,7 @@ const modules: Module[] = [
     description: "Announcements, complaints, and lost/found discussion feed.",
     stat: "3",
     meta: "threads",
-    roles: ["owner", "warden", "staff", "tenant", "parent"],
+    roles: ["owner", "staff", "tenant", "parent"],
     action: "Create post",
     endpoint: "/announcements",
     method: "POST",
@@ -334,7 +379,7 @@ const modules: Module[] = [
     description: "Weekly menu, publishing, feedback, and summary.",
     stat: "78%",
     meta: "rating",
-    roles: ["owner", "warden", "staff", "tenant"],
+    roles: ["owner", "staff", "tenant"],
     action: "Edit menu",
     endpoint: "/mess-menus",
     method: "POST",
@@ -548,7 +593,12 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
   }, [normalizedRole, workspace]);
 
   const allowedModules = useMemo(
-    () => modules.filter((module) => module.roles.includes(normalizedRole)),
+    () => {
+      const available = modules.filter((module) => module.roles.includes(normalizedRole));
+      if (normalizedRole !== "warden") return available;
+      const order: SectionId[] = ["overview", "rooms", "tenants", "complaints", "gate", "visitors", "announcements", "staff", "documents"];
+      return available.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    },
     [normalizedRole]
   );
   const activeModule = activeId === "profile"
@@ -742,7 +792,7 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
           <span>host</span>in<span>.</span>
         </button>
         <div className="appTopbarActions">
-          {normalizedRole !== "platform" ? (
+          {normalizedRole === "owner" ? (
             <label className="propertySwitcher">
               <span>Property</span>
               <select
@@ -833,7 +883,7 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
               >
                 Add tenant
               </button>
-            ) : normalizedRole !== "owner" && !["profile", "finance", "mess", "staff", "visitors", "gate", "community", "platform"].includes(activeModule.id) ? (
+            ) : normalizedRole !== "owner" && !["profile", "finance", "mess", "staff", "visitors", "gate", "community", "complaints", "announcements", "documents", "platform"].includes(activeModule.id) ? (
               <button className="gradientButton" onClick={syncModule} type="button">
                 {activeModule.action}
               </button>
@@ -853,6 +903,14 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
               orgId={login.orgId}
               setActiveId={setActiveId}
               view={activeModule.id}
+            />
+          ) : normalizedRole === "warden" && activeModule.id === "overview" ? (
+            <WardenDashboard
+              accessToken={login.accessToken}
+              orgId={login.orgId}
+              setActiveId={setActiveId}
+              userName={login.userName}
+              workspace={propertyName}
             />
           ) : activeModule.id === "rooms" && ["owner", "warden"].includes(normalizedRole) ? (
             <RoomsBoard
@@ -874,16 +932,20 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
           ) : activeModule.id === "visitors" ? (
             <VisitorsSection
               accessToken={login.accessToken}
-              canCreate={normalizedRole === "guard"}
+              canCreate={["guard", "warden"].includes(normalizedRole)}
+              canModerate={["owner", "warden", "guard"].includes(normalizedRole)}
               orgId={login.orgId}
             />
-          ) : activeModule.id === "community" ? (
+          ) : activeModule.id === "community" || activeModule.id === "complaints" || activeModule.id === "announcements" ? (
             <CommunitySection
               accessToken={login.accessToken}
-              canCreate={["owner", "warden"].includes(normalizedRole)}
+              canCreate={activeModule.id !== "complaints" && ["owner", "warden"].includes(normalizedRole)}
+              mode={activeModule.id === "complaints" ? "complaints" : activeModule.id === "announcements" ? "announcements" : undefined}
               orgId={login.orgId}
               role={normalizedRole}
             />
+          ) : activeModule.id === "documents" && normalizedRole === "warden" ? (
+            <DocumentsVault accessToken={login.accessToken} orgId={login.orgId} />
           ) : activeModule.id === "finance" ? (
             <FinanceSection
               accessToken={login.accessToken}
@@ -1051,12 +1113,101 @@ function ProfilePage({ login, role, workspace, onLogout, showTitle = false }: { 
   );
 }
 
+function WardenDashboard({ accessToken, orgId, setActiveId, userName, workspace }: { accessToken: string; orgId: string; setActiveId: (id: SectionId) => void; userName: string; workspace: string }) {
+  const [rooms, setRooms] = useState<RoomBoardRoom[]>([]);
+  const [complaints, setComplaints] = useState<ComplaintRecord[]>([]);
+  const [passes, setPasses] = useState<GatePassRecord[]>([]);
+  const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const headers = { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId };
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetch(`${apiBase}/rooms`, { headers }),
+      fetch(`${apiBase}/complaints`, { headers }),
+      fetch(`${apiBase}/gate-passes`, { headers }),
+      fetch(`${apiBase}/visitors`, { headers }),
+      fetch(`${apiBase}/documents`, { headers }),
+    ])
+      .then(async (responses) => Promise.all(responses.map((response) => response.json().catch(() => ({})))))
+      .then(([roomData, complaintData, passData, visitorData, documentData]) => {
+        if (!active) return;
+        setRooms((roomData.rooms ?? []).map(mapApiRoom));
+        setComplaints(complaintData.complaints ?? []);
+        setPasses(passData.gatePasses ?? []);
+        setVisitors(visitorData.visitors ?? []);
+        setDocuments(documentData.documents ?? []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRooms([]); setComplaints([]); setPasses([]); setVisitors([]); setDocuments([]);
+      })
+      .finally(() => active && setIsLoading(false));
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, orgId]);
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const availableBeds = rooms.reduce((total, room) => total + Math.max(0, room.capacity - room.currentOccupancy), 0);
+  const openComplaints = complaints.filter((item) => ["open", "in_progress"].includes(item.status));
+  const pendingPasses = passes.filter((item) => item.status === "pending");
+  const visitorsToday = visitors.filter((item) => item.expected_visit_time?.slice(0, 10) === today);
+  const waitingVisitors = visitors.filter((item) => item.status === "pending");
+  const currentVisitors = visitors.filter((item) => item.status === "approved");
+  const lateReturns = passes.filter((item) => item.status === "approved" && new Date(item.expected_return_time) < now);
+  const pendingDocuments = documents.filter((item) => !item.is_verified);
+  const urgentComplaints = openComplaints
+    .sort((a, b) => ["urgent", "high", "medium", "low"].indexOf(a.priority) - ["urgent", "high", "medium", "low"].indexOf(b.priority))
+    .slice(0, 4);
+  const tasks: { label: string; count: number; action: string; target: SectionId }[] = [
+    { label: "gate passes waiting for approval", count: pendingPasses.length, action: "Approve", target: "gate" },
+    { label: "complaints needing attention", count: openComplaints.length, action: "Assign", target: "complaints" },
+    { label: "tenants late to return", count: lateReturns.length, action: "Call", target: "gate" },
+    { label: "visitors waiting at the gate", count: waitingVisitors.length, action: "Review", target: "visitors" },
+    { label: "documents pending review", count: pendingDocuments.length, action: "Review", target: "documents" },
+  ];
+
+  return <div aria-busy={isLoading} className="wardenDashboard">
+    <section className="panel wardenWelcome"><p className="sectionEyebrow">Warden dashboard</p><h2>Good morning, {userName.split(" ")[0]}</h2><p>{workspace} · Here is what needs attention today.</p></section>
+    {isLoading ? <section className="panel wardenLoading"><DirectorySkeleton /></section> : null}
+    <section className="wardenKpis" aria-label="Today’s operational summary">
+      {[["Available Beds", availableBeds, "rooms"], ["Pending Complaints", openComplaints.length, "complaints"], ["Gate Pass Requests", pendingPasses.length, "gate"], ["Visitors Today", visitorsToday.length, "visitors"], ["Late Returns", lateReturns.length, "gate"]].map(([label, value, target]) => <button className="panel" key={label} onClick={() => setActiveId(target as SectionId)} type="button"><span>{label}</span><strong>{value}</strong></button>)}
+    </section>
+    <section className="panel wardenTasks"><PanelTitle title="Today’s Tasks" meta={`${tasks.reduce((sum, task) => sum + task.count, 0)} actions`} /><div>{tasks.map((task) => <article key={task.label}><strong>{task.count}</strong><span>{task.label}</span><button onClick={() => setActiveId(task.target)} type="button">{task.action}</button></article>)}</div></section>
+    <div className="wardenOperationalGrid">
+      <section className="panel wardenRoomSnapshot"><PanelTitle title="Room Snapshot" meta={`${rooms.length} rooms`} /><div>{rooms.slice(0, 8).map((room) => <button className={getRoomState(room)} key={room.id} onClick={() => setActiveId("rooms")} type="button"><strong>{room.roomNumber}</strong><span>{room.status === "maintenance" ? "Maintenance" : room.currentOccupancy === 0 ? "Empty" : `${room.currentOccupancy}/${room.capacity}`}</span></button>)}</div><button className="textLink" onClick={() => setActiveId("rooms")} type="button">View all rooms →</button></section>
+      <section className="panel wardenQueue"><PanelTitle title="Pending Complaints" meta={`${openComplaints.length} open`} />{urgentComplaints.map((item) => <article key={item.id}><div><strong>{item.title || titleFromSlug(item.category)}</strong><small>{item.tenant?.full_name || "Resident"} · {titleFromSlug(item.priority)}</small></div><button onClick={() => setActiveId("complaints")} type="button">Resolve</button></article>)}{!urgentComplaints.length ? <EmptyPanel title="No pending complaints" copy="There is nothing urgent right now."/> : null}</section>
+      <section className="panel wardenQueue"><PanelTitle title="Gate Pass Requests" meta={`${pendingPasses.length} pending`} />{pendingPasses.slice(0, 4).map((pass) => <article key={pass.id}><div><strong>{pass.tenant?.full_name || "Tenant"}</strong><small>{pass.purpose || pass.reason} · {pass.destination}</small></div><button onClick={() => setActiveId("gate")} type="button">Approve</button></article>)}{!pendingPasses.length ? <EmptyPanel title="No pending passes" copy="New outing requests will appear here."/> : null}</section>
+      <section className="panel wardenQueue"><PanelTitle title="Visitors" meta={`${waitingVisitors.length} waiting · ${currentVisitors.length} inside`} />{[...waitingVisitors, ...currentVisitors].slice(0, 4).map((visitor) => <article key={visitor.id}><div><strong>{visitor.visitor_name}</strong><small>{visitor.status === "pending" ? "Waiting at gate" : "Currently inside"} · {visitor.tenant?.full_name || "Tenant"}</small></div><button onClick={() => setActiveId("visitors")} type="button">{visitor.status === "pending" ? "Review" : "Mark Exit"}</button></article>)}{!waitingVisitors.length && !currentVisitors.length ? <EmptyPanel title="No visitors needing attention" copy="Waiting and current visitors will appear here."/> : null}</section>
+    </div>
+  </div>;
+}
+
+function DocumentsVault({ accessToken, orgId }: { accessToken: string; orgId: string }) {
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [query, setQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    fetch(`${apiBase}/documents`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } })
+      .then((response) => response.json())
+      .then((data) => setDocuments(data.documents ?? []))
+      .catch(() => setDocuments([]))
+      .finally(() => setIsLoading(false));
+  }, [accessToken, orgId]);
+  const filtered = documents.filter((document) => (document.tenant?.full_name ?? "").toLowerCase().includes(query.trim().toLowerCase()));
+  return <section className="panel"><PanelTitle title="Documents Vault" meta={`${documents.filter((document) => !document.is_verified).length} pending review`} /><div className="documentVaultToolbar"><label><span>Filter by student name</span><input aria-label="Filter documents by student name" onChange={(event) => setQuery(event.target.value)} placeholder="Search student..." type="search" value={query}/></label><small>{filtered.length} of {documents.length} documents</small></div>{isLoading ? <DirectorySkeleton/> : filtered.length ? <div className="documentCardGrid">{filtered.map((document) => <article key={document.id}><div><strong>{document.tenant?.full_name ?? "Student"}</strong><small>{document.tenant?.email}</small></div><span>{titleFromSlug(document.doc_type)}</span><a href={document.file_url} rel="noreferrer" target="_blank">{document.file_name}</a><span className={`statusPill ${document.is_verified ? "verified" : "pending"}`}>{document.is_verified ? "Verified" : "Pending"}</span></article>)}</div> : <EmptyPanel title="No matching documents" copy="Try another student name."/>}</section>;
+}
+
 function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { accessToken: string; orgId: string; view: SectionId; setActiveId: (id: SectionId) => void }) {
   const [dashboard, setDashboard] = useState<OwnerDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [requestTitle, setRequestTitle] = useState("Submit request to 1Forge");
+  const [documentQuery, setDocumentQuery] = useState("");
   const [draft, setDraft] = useState({
     type: view === "ownerBilling" ? "plan_upgrade" : view === "ownerProperties" ? "new_property" : "credential_creation",
     title: "",
@@ -1174,7 +1325,8 @@ function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { acce
   }
 
   if (view === "documents") {
-    return <section className="panel"><PanelTitle title="Documents Vault" meta={`${dashboard.documents.filter((document) => document.status === "pending").length} pending verification`} /><div className="controlTable ownerDocumentsTable"><div><b>Tenant</b><b>Document</b><b>File</b><b>Status</b><b>Uploaded</b></div>{dashboard.documents.map((document) => <div key={document.id}><span>{document.tenantName}</span><span>{titleFromSlug(document.type)}</span><span>{document.fileName}</span><span className={`statusPill ${document.status}`}>{titleFromSlug(document.status)}</span><span>{new Date(document.createdAt).toLocaleDateString("en-IN")}</span></div>)}</div></section>;
+    const filteredDocuments = dashboard.documents.filter((document) => document.tenantName.toLowerCase().includes(documentQuery.trim().toLowerCase()));
+    return <section className="panel"><PanelTitle title="Documents Vault" meta={`${dashboard.documents.filter((document) => document.status === "pending").length} pending verification`} /><div className="documentVaultToolbar"><label><span>Filter by student name</span><input aria-label="Filter documents by student name" onChange={(event) => setDocumentQuery(event.target.value)} placeholder="Search student..." type="search" value={documentQuery}/></label><small>{filteredDocuments.length} of {dashboard.documents.length} documents</small></div><div className="controlTable ownerDocumentsTable"><div><b>Tenant</b><b>Document</b><b>File</b><b>Status</b><b>Uploaded</b></div>{filteredDocuments.map((document) => <div key={document.id}><span>{document.tenantName}</span><span>{titleFromSlug(document.type)}</span><span>{document.fileName}</span><span className={`statusPill ${document.status}`}>{titleFromSlug(document.status)}</span><span>{new Date(document.createdAt).toLocaleDateString("en-IN")}</span></div>)}</div>{!filteredDocuments.length ? <EmptyPanel title="No matching documents" copy="Try another student name."/> : null}</section>;
   }
 
   if (view === "ownerBilling") {
@@ -1371,7 +1523,7 @@ function PlatformSection({ accessToken, routeView }: { accessToken: string; rout
       {controlTab === "apps & roles" ? <section className="roleAppGrid">{roleLabels.map((roleName) => { const dashboard = controlData?.roleDashboards.find((item) => item.role === roleName); const key = `role_${roleName}`; const saved = selected.features.find((feature) => feature.key === key); const enabled = dashboard ? dashboard.status === "active" : saved?.enabled ?? (selected.roleCounts[roleName] ?? 0) > 0; return <article className="panel roleAppCard" key={roleName}><div><span className="clientAvatar">{roleName.slice(0, 2).toUpperCase()}</span><span className={`statusPill ${enabled ? "active" : "paused"}`}>{enabled ? "Enabled" : titleFromSlug(dashboard?.status || "Disabled")}</span></div><h3>{titleFromSlug(roleName)} App</h3><p>{roleName === "tenant" ? "Dues, passes, community and resident services." : roleName === "guard" ? "Visitor entry, gate passes and security workflows." : "Role-specific access to the client workspace."}</p><footer><small>{selected.roleCounts[roleName] ?? 0} active accounts</small><label className="switch"><input checked={enabled} onChange={(event) => updateRoleDashboard(roleName, event.target.checked)} type="checkbox"/><i /></label></footer></article>; })}</section> : null}
       {controlTab === "features" ? <section className="panel"><PanelTitle title="Feature access" meta="Client and role-level policy" /><div className="featureManagementTable">{featureKeys.map((key) => { const enabled = selected.features.find((feature) => feature.key === key)?.enabled ?? false; return <div key={key}><span><strong>{titleFromSlug(key)}</strong><small>Control this capability across the client workspace.</small></span><em>{enabled ? "In use" : "Not in use"}</em><b>{selected.planName}</b><label className="switch"><input checked={enabled} onChange={(event) => toggleFeature(key, event.target.checked)} type="checkbox"/><i /></label></div>; })}</div><div className="rolePermissionMatrix"><h3>Role feature permissions</h3><div className="permissionMatrixHead"><b>Feature</b>{roleLabels.map((role) => <b key={role}>{titleFromSlug(role)}</b>)}</div>{featureKeys.map((feature) => <div key={feature}><strong>{titleFromSlug(feature)}</strong>{roleLabels.map((role) => { const saved = controlData?.rolePermissions.find((permission) => permission.role === role && permission.feature_key === feature); const allowed = saved?.is_allowed !== false; return <label key={role}><input aria-label={`${titleFromSlug(role)} ${titleFromSlug(feature)}`} checked={allowed} onChange={(event) => updateRolePermission(role, feature, event.target.checked)} type="checkbox"/><span>{allowed ? "Allow" : "Block"}</span></label>; })}</div>)}</div></section> : null}
       {controlTab === "access overrides" ? <div className="overrideControlGrid"><form className="panel overrideForm" onSubmit={saveAccessOverride}><PanelTitle title="Add access override" meta="Advanced control" /><label><span>User</span><select onChange={(event) => { const account = controlData?.accounts.find((item) => item.id === event.target.value); setOverrideDraft((current) => ({ ...current, userId: event.target.value, role: account?.roles[0] || current.role })); }} required value={overrideDraft.userId}><option value="">Select account</option>{controlData?.accounts.map((account) => <option key={account.id} value={account.id}>{account.full_name} · {account.email}</option>)}</select></label><label><span>Role</span><select onChange={(event) => setOverrideDraft((current) => ({ ...current, role: event.target.value }))} value={overrideDraft.role}>{(controlData?.accounts.find((item) => item.id === overrideDraft.userId)?.roles || roleLabels).map((role) => <option key={role}>{role}</option>)}</select></label><label><span>Feature</span><select onChange={(event) => setOverrideDraft((current) => ({ ...current, featureKey: event.target.value }))} value={overrideDraft.featureKey}>{featureKeys.map((feature) => <option key={feature} value={feature}>{titleFromSlug(feature)}</option>)}</select></label><label><span>Access</span><select onChange={(event) => setOverrideDraft((current) => ({ ...current, decision: event.target.value }))} value={overrideDraft.decision}><option value="block">Block</option><option value="allow">Allow</option></select></label><label><span>Reason</span><textarea onChange={(event) => setOverrideDraft((current) => ({ ...current, reason: event.target.value }))} value={overrideDraft.reason}/></label><label><span>Expiry date (optional)</span><input onChange={(event) => setOverrideDraft((current) => ({ ...current, expiresAt: event.target.value }))} type="date" value={overrideDraft.expiresAt}/></label><button className="gradientButton" type="submit">Save override</button></form><section className="panel"><PanelTitle title="Active overrides" meta={`${controlData?.accessOverrides.length ?? 0} rules`} /><div className="overrideList">{controlData?.accessOverrides.map((override) => <div key={override.id}><span className={`statusPill ${override.decision === "allow" ? "active" : "paused"}`}>{override.decision}</span><p><strong>{override.user.full_name}</strong><small>{titleFromSlug(override.role)} · {titleFromSlug(override.feature_key)}</small></p><span>{override.reason || "No reason supplied"}</span><button onClick={() => deleteAccessOverride(override.id)} type="button">Remove</button></div>)}</div></section></div> : null}
-      {controlTab === "theme & branding" ? <section className="brandingGrid"><div className="panel brandingControls"><PanelTitle title="Client theme" meta="Applies across all role apps" /><label><span>Primary theme colour</span><div className="brandColorField"><input type="color" value={selected.themeColor || "#7c5cff"} onChange={(event) => updateOrganization({ themeColor: event.target.value })}/><strong>{selected.themeColor || "#7c5cff"}</strong></div></label><p>The saved colour is loaded automatically whenever an owner, warden, guard, staff member, tenant, or parent signs into this client.</p><div className="applyRoleList">{roleLabels.map((roleName) => <span key={roleName}>✓ {titleFromSlug(roleName)} App</span>)}</div></div><div className="panel brandPreview" style={{ "--preview-accent": selected.themeColor || "#7c5cff" } as CSSProperties}><PanelTitle title="Live preview" meta="Workspace shell" /><div className="brandPreviewWindow"><aside><b>{selected.name.slice(0, 1)}</b><i/><i/><i/></aside><main><small>{selected.name}</small><h3>Good morning, team.</h3><div><span/><span/><span/></div><button type="button">Primary action</button></main></div></div></section> : null}
+      {controlTab === "theme & branding" ? <section className="brandingGrid"><div className="panel brandingControls"><PanelTitle title="Client theme" meta="Applies across all role apps" /><label><span>Primary theme colour</span><div className="brandColorField"><input type="color" value={selected.themeColor || "#0f766e"} onChange={(event) => updateOrganization({ themeColor: event.target.value })}/><strong>{selected.themeColor || "#0f766e"}</strong></div></label><p>The saved colour is loaded automatically whenever an owner, warden, guard, staff member, tenant, or parent signs into this client.</p><div className="applyRoleList">{roleLabels.map((roleName) => <span key={roleName}>✓ {titleFromSlug(roleName)} App</span>)}</div></div><div className="panel brandPreview" style={{ "--preview-accent": selected.themeColor || "#0f766e" } as CSSProperties}><PanelTitle title="Live preview" meta="Workspace shell" /><div className="brandPreviewWindow"><aside><b>{selected.name.slice(0, 1)}</b><i/><i/><i/></aside><main><small>{selected.name}</small><h3>Good morning, team.</h3><div><span/><span/><span/></div><button type="button">Primary action</button></main></div></div></section> : null}
       {controlTab === "billing" ? <section className="panel"><PanelTitle title="Subscription & billing" meta={`${money(selected.monthlyPrice)}/month`} /><div className="platformControlGrid"><label><span>Plan</span><select value={plans.find((plan) => plan.name === selected.planName)?.id ?? ""} onChange={(event) => updateOrganization({ planId: event.target.value })}>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {money(plan.price_monthly)}/mo</option>)}</select></label><label><span>Subscription status</span><select value={selected.planStatus} onChange={(event) => updateOrganization({ planStatus: event.target.value })}>{["active", "trialing", "paused", "canceled", "expired"].map((status) => <option key={status} value={status}>{titleFromSlug(status)}</option>)}</select></label><label><span>Renewal / expiry date</span><input onChange={(event) => updateOrganization({ planExpiresAt: event.target.value || null })} type="date" value={selected.planExpiresAt?.slice(0, 10) ?? ""}/></label><label><span>Licensed capacity</span><input min="0" onBlur={(event) => updateOrganization({ totalCapacity: event.target.value })} type="number" defaultValue={selected.totalCapacity}/></label></div></section> : null}
     </div>;
   }
@@ -1865,10 +2017,12 @@ function GatePassRow({ children, pass }: { children?: ReactNode; pass: GatePassR
 function VisitorsSection({
   accessToken,
   canCreate,
+  canModerate,
   orgId,
 }: {
   accessToken: string;
   canCreate: boolean;
+  canModerate: boolean;
   orgId: string;
 }) {
   const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
@@ -1934,6 +2088,15 @@ function VisitorsSection({
       setShowCreate(false);
       await loadVisitors();
     }
+  }
+
+  async function updateVisitor(id: string, status: "approved" | "rejected") {
+    const response = await fetch(`${apiBase}/visitors/${id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+      body: JSON.stringify({ status }),
+    });
+    if (response.ok) await loadVisitors();
   }
 
   const filteredVisitors = visitors.filter((visitor) => {
@@ -2035,6 +2198,7 @@ function VisitorsSection({
                 </small>
                 <small>{formatDateTime(visitor.expected_visit_time)}</small>
               </div>
+              <div><span className={`statusPill ${visitor.status}`}>{titleFromSlug(visitor.status)}</span>{canModerate && visitor.status === "pending" ? <div className="inlineActions"><button onClick={() => updateVisitor(visitor.id, "approved")} type="button">Approve Entry</button><button onClick={() => updateVisitor(visitor.id, "rejected")} type="button">Reject</button></div> : null}</div>
             </article>
           ))}
         </div>
@@ -2050,20 +2214,21 @@ function CommunitySection({
   canCreate,
   orgId,
   role,
+  mode,
 }: {
   accessToken: string;
   canCreate: boolean;
   orgId: string;
   role: Role;
+  mode?: "complaints" | "announcements";
 }) {
-  const [tab, setTab] = useState<"announcements" | "complaints" | "lost">("announcements");
+  const [tab, setTab] = useState<"announcements" | "complaints" | "lost">(mode ?? "announcements");
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [complaints, setComplaints] = useState<any[]>([]);
   const [lostPosts, setLostPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [commentsFor, setCommentsFor] = useState("");
-  const visibleTabs =
-    role === "tenant" || role === "parent" || role === "guard"
+  const visibleTabs = mode ? [mode] : role === "tenant" || role === "parent" || role === "guard"
       ? ["announcements", "lost"]
       : ["announcements", "complaints", "lost"];
 
@@ -2097,13 +2262,26 @@ function CommunitySection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, orgId]);
 
+  useEffect(() => {
+    if (mode) setTab(mode);
+  }, [mode]);
+
+  async function updateComplaintStatus(id: string, status: "in_progress" | "resolved") {
+    const response = await fetch(`${apiBase}/complaints/${id}/status`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+      body: JSON.stringify({ status, note: status === "resolved" ? "Resolved by warden" : "Warden started handling this complaint" }),
+    });
+    if (response.ok) await loadCommunity();
+  }
+
   const feedItems = tab === "announcements" ? announcements : tab === "complaints" ? complaints : lostPosts;
 
   return (
     <section className="panel feedPanel">
       <div className="communityHeader">
-        <PanelTitle title="Community" meta="Announcements · Complaints · Lost/Found" />
-        <div className="communityToggle">
+        <PanelTitle title={mode ? titleFromSlug(mode) : "Community"} meta={mode === "complaints" ? "Open · In progress · Resolved" : mode === "announcements" ? "Property updates" : "Announcements · Complaints · Lost/Found"} />
+        {!mode ? <div className="communityToggle">
           {visibleTabs.map((item) => (
             <button
               className={tab === item ? "active" : ""}
@@ -2114,7 +2292,7 @@ function CommunitySection({
               {item === "lost" ? "Lost / Found" : titleFromSlug(item)}
             </button>
           ))}
-        </div>
+        </div> : null}
       </div>
       {canCreate || (role === "tenant" && tab === "lost") ? (
         <CommunityComposer tab={tab} accessToken={accessToken} orgId={orgId} onPosted={loadCommunity} />
@@ -2133,6 +2311,7 @@ function CommunitySection({
                 </small>
               </div>
               <p>{item.body ?? item.description ?? "No description added."}</p>
+              {role === "warden" && tab === "complaints" && !["resolved", "closed"].includes(item.status) ? <div className="inlineActions complaintActions">{item.status === "open" ? <button onClick={() => updateComplaintStatus(item.id, "in_progress")} type="button">Start work</button> : null}<button onClick={() => updateComplaintStatus(item.id, "resolved")} type="button">Resolve</button></div> : null}
               {item.imageUrls?.length ? (
                 <div className="postImages">
                   {item.imageUrls.map((url: string, index: number) => (

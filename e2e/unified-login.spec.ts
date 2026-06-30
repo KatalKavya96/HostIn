@@ -48,12 +48,40 @@ test("tenant account routes directly to its private profile", async ({ page }) =
   await expect(page).toHaveURL(/\/city-complex\/tenant\/aarav-mehta$/);
   await expect(page.getByRole("button", { name: "Gate Passes" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Rooms" })).toHaveCount(0);
-  await expect(page.getByLabel("Switch property")).toHaveValue("city-complex");
+  await expect(page.getByLabel("Switch property")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sync", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Profile menu" }).click();
   await page.getByRole("button", { name: "View profile" }).click();
   await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
   await expect(page.getByText("Posting identity", { exact: true })).toBeVisible();
+});
+
+test("warden account opens a minimal daily operations dashboard", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Use Warden demo account" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).toHaveURL(/\/city-complex\/warden\/anita-warden$/);
+  await expect(page.getByRole("heading", { name: "Good morning, Anita" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today’s Tasks" })).toBeVisible();
+  await expect(page.getByLabel("Today’s operational summary")).toBeVisible();
+  await expect(page.getByLabel("Switch property")).toHaveCount(0);
+
+  const sidebar = page.getByRole("complementary");
+  for (const item of ["Dashboard", "Rooms", "Tenants", "Complaints", "Gate Passes", "Visitors", "Announcements", "Staff Contacts", "Documents Vault"]) {
+    await expect(sidebar.getByRole("button", { name: item, exact: true })).toBeVisible();
+  }
+  for (const item of ["Billing & Plans", "Dues & Payments", "Mess", "Reports", "Settings", "Analytics"]) {
+    await expect(sidebar.getByRole("button", { name: item, exact: true })).toHaveCount(0);
+  }
+
+  await sidebar.getByRole("button", { name: "Documents Vault", exact: true }).click();
+  const filter = page.getByLabel("Filter documents by student name");
+  await expect(filter).toBeVisible();
+  await filter.fill("Aarav");
+  await expect(page.getByText("Aarav Mehta", { exact: true })).toBeVisible();
+  await filter.fill("No Such Student");
+  await expect(page.getByText("0 of 1 documents", { exact: true })).toBeVisible();
+  await expect(page.getByText("No matching documents", { exact: true })).toBeVisible();
 });
 
 test("owner account opens the database-backed business dashboard", async ({ page }) => {
@@ -80,6 +108,11 @@ test("owner account opens the database-backed business dashboard", async ({ page
   await expect(page.getByLabel("Request type")).toHaveValue("credential_creation");
   await page.getByRole("button", { name: "Close request form" }).click();
   await expect(page.getByRole("heading", { name: "Add Team Member" })).toHaveCount(0);
+
+  await ownerSidebar.getByRole("button", { name: "Documents Vault", exact: true }).click();
+  const ownerDocumentFilter = page.getByLabel("Filter documents by student name");
+  await ownerDocumentFilter.fill("Aarav");
+  await expect(page.getByText("Aarav Mehta", { exact: true })).toBeVisible();
 
   await ownerSidebar.getByRole("button", { name: "Requests" }).click();
   await expect(page.getByRole("heading", { name: "Request history" })).toBeVisible();
