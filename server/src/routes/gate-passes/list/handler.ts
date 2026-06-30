@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthorizedRequest } from "../../../middleware/orgAccess";
 import { prisma } from "../../../lib/prisma";
 import { PassStatus } from "../../../../generated/prisma/client";
+import { expireUnusedGatePasses } from "../../../lib/gatePassLifecycle";
 
 export const handleListPasses = async (req: AuthorizedRequest, res: Response) => {
   const orgId = req.headers["x-org-id"] as string;
@@ -30,6 +31,7 @@ export const handleListPasses = async (req: AuthorizedRequest, res: Response) =>
   }
 
   try {
+    await expireUnusedGatePasses(prisma, orgId, userRole === "tenant" ? userId : tenantId as string | undefined);
     const gatePasses = await prisma.gatePass.findMany({
       where: whereClause,
       include: {

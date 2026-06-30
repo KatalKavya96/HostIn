@@ -83,7 +83,10 @@ type GatePassRecord = {
   purpose?: string;
   destination: string;
   status: string;
+  expected_out_time: string;
   expected_return_time: string;
+  actual_out_time?: string | null;
+  actual_in_time?: string | null;
   tenant?: { full_name: string; phone?: string };
 };
 
@@ -653,6 +656,7 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
   const [activeId, setActiveId] = useState<SectionId>(normalizedRole === "platform" ? "platform" : "overview");
   const [message, setMessage] = useState("Login to open this private workspace.");
   const [busy, setBusy] = useState(false);
+  const [gatePassLocked, setGatePassLocked] = useState(false);
   const propertyName = titleFromSlug(workspace);
 
   useEffect(() => {
@@ -987,8 +991,8 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
                     Add tenant
                   </button>
                 ) : normalizedRole === "tenant" && activeModule.id === "gate" ? (
-                  <button className="gradientButton" onClick={() => window.dispatchEvent(new Event("hostin:request-gate-pass"))} type="button">
-                    Request Gate Pass
+                  <button className="gradientButton" disabled={gatePassLocked} onClick={() => window.dispatchEvent(new Event("hostin:request-gate-pass"))} type="button">
+                    {gatePassLocked ? "Gate Pass Active" : "Request Gate Pass"}
                   </button>
                 ) : normalizedRole !== "owner" && !["profile", "finance", "mess", "staff", "visitors", "gate", "community", "complaints", "announcements", "documents", "parents", "parentChild", "parentGate", "parentBilling", "parentMess", "parentAnnouncements", "parentContacts", "parentHelp", "parentDocuments", "platform"].includes(activeModule.id) ? (
                   <button className="gradientButton" onClick={syncModule} type="button">
@@ -1015,7 +1019,7 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
               ) : activeModule.id === "tenants" && ["owner", "warden"].includes(normalizedRole) ? (
                 <TenantsSection accessToken={login.accessToken} orgId={login.orgId} workspace={workspace} />
               ) : activeModule.id === "gate" ? (
-                <GatePassSection accessToken={login.accessToken} canModerate={["owner", "warden", "guard"].includes(normalizedRole)} isTenant={normalizedRole === "tenant"} orgId={login.orgId} />
+                <GatePassSection accessToken={login.accessToken} canApprove={["owner", "warden"].includes(normalizedRole)} canHandleMovement={["owner", "warden", "guard"].includes(normalizedRole)} isTenant={normalizedRole === "tenant"} onLockChange={setGatePassLocked} orgId={login.orgId} />
               ) : activeModule.id === "visitors" ? (
                 <VisitorsSection accessToken={login.accessToken} canCreate={["guard", "warden"].includes(normalizedRole)} canModerate={["owner", "warden", "guard"].includes(normalizedRole)} orgId={login.orgId} />
               ) : activeModule.id === "community" || activeModule.id === "complaints" || activeModule.id === "announcements" ? (
@@ -3229,10 +3233,13 @@ function TenantDetailCard({ tenant }: { tenant?: TenantRecord }) {
   );
 }
 
-function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { accessToken: string; canModerate: boolean; isTenant: boolean; orgId: string }) {
+function GatePassSection({ accessToken, canApprove, canHandleMovement, isTenant, onLockChange, orgId }: { accessToken: string; canApprove: boolean; canHandleMovement: boolean; isTenant: boolean; onLockChange: (locked: boolean) => void; orgId: string }) {
   const [passes, setPasses] = useState<GatePassRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const activePass = passes.find((pass) => ["pending", "approved"].includes(pass.status));
 
   async function loadPasses() {
     setIsLoading(true);
@@ -3262,10 +3269,20 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
   }, [showRequestForm]);
 
   useEffect(() => {
-    const open = () => setShowRequestForm(true);
+    const open = () => {
+      if (!activePass) {
+        setRequestError("");
+        setShowRequestForm(true);
+      }
+    };
     window.addEventListener("hostin:request-gate-pass", open);
     return () => window.removeEventListener("hostin:request-gate-pass", open);
-  }, []);
+  }, [activePass]);
+
+  useEffect(() => {
+    onLockChange(Boolean(activePass));
+    return () => onLockChange(false);
+  }, [activePass, onLockChange]);
 
   async function updatePass(id: string, status: "approved" | "rejected") {
     const response = await fetch(`${apiBase}/gate-passes/${id}/approve`, {
@@ -3279,21 +3296,32 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
 
   async function requestPass(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (activePass || isSubmitting) return;
+    setIsSubmitting(true);
+    setRequestError("");
     const form = new FormData(event.currentTarget);
-    const response = await fetch(`${apiBase}/gate-passes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
-      body: JSON.stringify({
-        purpose: form.get("purpose"),
-        destination: form.get("destination"),
-        expectedOutTime: form.get("expectedOutTime"),
-        expectedReturnTime: form.get("expectedReturnTime"),
-      }),
-    });
-    if (response.ok) {
+    try {
+      const response = await fetch(`${apiBase}/gate-passes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+        body: JSON.stringify({
+          purpose: form.get("purpose"),
+          destination: form.get("destination"),
+          expectedOutTime: form.get("expectedOutTime"),
+          expectedReturnTime: form.get("expectedReturnTime"),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setRequestError(data.error ?? "Could not create the gate pass.");
+        if (data.activeGatePass) setPasses((current) => [data.activeGatePass, ...current.filter((pass) => pass.id !== data.activeGatePass.id)]);
+        return;
+      }
+      setPasses((current) => [data.gatePass, ...current.filter((pass) => pass.id !== data.gatePass.id)]);
       event.currentTarget.reset();
       setShowRequestForm(false);
-      await loadPasses();
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -3305,8 +3333,15 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
     if (response.ok) await loadPasses();
   }
 
-  const pendingPasses = passes.filter((pass) => pass.status === "pending");
-  const historyPasses = passes.filter((pass) => pass.status !== "pending");
+  async function movePass(id: string, action: "check-out" | "check-in") {
+    const response = await fetch(`${apiBase}/gate-passes/${id}/${action}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+    });
+    if (response.ok) await loadPasses();
+  }
+
+  const historyPasses = passes.filter((pass) => !["pending", "approved"].includes(pass.status));
 
   if (isTenant)
     return (
@@ -3340,29 +3375,28 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
                   <span>Expected return</span>
                   <input name="expectedReturnTime" type="datetime-local" required />
                 </label>
-                <button className="gradientButton fullButton" type="submit">
-                  Submit Request
+                {requestError ? <p className="formError" role="alert">{requestError}</p> : null}
+                <button className="gradientButton fullButton" disabled={isSubmitting} type="submit">
+                  {isSubmitting ? "Creating..." : "Submit Request"}
                 </button>
               </form>
             </section>
           </div>
         ) : null}
         <section className="panel feedPanel">
-          <PanelTitle title="Pending requests" meta={`${pendingPasses.length} awaiting review`} />
+          <PanelTitle title="Current gate pass" meta={activePass ? "1 active" : "No active pass"} />
           {isLoading ? (
             <DirectorySkeleton />
-          ) : pendingPasses.length ? (
+          ) : activePass ? (
             <div className="recordList">
-              {pendingPasses.map((pass) => (
-                <GatePassRow key={pass.id} pass={pass}>
-                  <button className="cancelTextButton" onClick={() => cancelPass(pass.id)} type="button">
+                <GatePassRow key={activePass.id} pass={activePass}>
+                  {activePass.status === "pending" ? <button className="cancelTextButton" onClick={() => cancelPass(activePass.id)} type="button">
                     Cancel request
-                  </button>
+                  </button> : null}
                 </GatePassRow>
-              ))}
             </div>
           ) : (
-            <EmptyPanel title="No pending requests" copy="Your new requests will appear here until reviewed." />
+            <EmptyPanel title="No active gate pass" copy="You can request a new gate pass." />
           )}
           <PanelTitle title="Gate pass history" meta="Permanent record" />
           {historyPasses.length ? (
@@ -3380,7 +3414,7 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
 
   return (
     <section className="panel feedPanel">
-      <PanelTitle title="Gate pass requests" meta={canModerate ? "Approve / Reject" : "View only"} />
+      <PanelTitle title="Gate pass requests" meta={canHandleMovement ? "Live movement controls" : "View only"} />
       {isLoading ? (
         <DirectorySkeleton />
       ) : passes.length ? (
@@ -3396,7 +3430,7 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
               </div>
               <div>
                 <span className={`statusPill ${pass.status}`}>{pass.status}</span>
-                {canModerate && pass.status === "pending" ? (
+                {canApprove && pass.status === "pending" ? (
                   <div className="inlineActions">
                     <button onClick={() => updatePass(pass.id, "approved")} type="button">
                       Approve
@@ -3406,6 +3440,8 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
                     </button>
                   </div>
                 ) : null}
+                {canHandleMovement && pass.status === "approved" && !pass.actual_out_time ? <button onClick={() => movePass(pass.id, "check-out")} type="button">Mark exit</button> : null}
+                {canHandleMovement && pass.status === "approved" && pass.actual_out_time && !pass.actual_in_time ? <button onClick={() => movePass(pass.id, "check-in")} type="button">Resolve return</button> : null}
               </div>
             </article>
           ))}
@@ -3418,6 +3454,9 @@ function GatePassSection({ accessToken, canModerate, isTenant, orgId }: { access
 }
 
 function GatePassRow({ children, pass }: { children?: ReactNode; pass: GatePassRecord }) {
+  const [renderedAt] = useState(() => Date.now());
+  const isOverdue = pass.status === "approved" && Boolean(pass.actual_out_time) && new Date(pass.expected_return_time).getTime() < renderedAt;
+  const statusLabel = isOverdue ? "Overdue" : pass.status === "approved" ? "Active" : titleFromSlug(pass.status);
   return (
     <article className="actionRecord">
       <div>
@@ -3426,7 +3465,7 @@ function GatePassRow({ children, pass }: { children?: ReactNode; pass: GatePassR
         <small>Return: {formatDateTime(pass.expected_return_time)}</small>
       </div>
       <div>
-        <span className={`statusPill ${pass.status}`}>{pass.status}</span>
+        <span className={`statusPill ${isOverdue ? "overdue" : pass.status}`}>{statusLabel}</span>
         {children}
       </div>
     </article>

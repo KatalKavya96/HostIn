@@ -85,6 +85,48 @@ describe.runIf(Boolean(process.env.RUN_DATABASE_TESTS))("Database-backed authori
     expect([403, 404]).toContain(foreignOrgAttempt.status);
   });
 
+  it("allows only one open gate pass and lets a guard resolve an early return", async () => {
+    const tenantLogin = await request(app).post("/api/auth/resolve-login").send({ email: "tenant@city-complex.hostin.local", password: "city-complex@123" });
+    const orgId = tenantLogin.body.session.orgId as string;
+    const tenantAuthorization = { Authorization: `Bearer ${tenantLogin.body.accessToken}`, "x-org-id": orgId };
+    const createdIds: string[] = [];
+    const expectedOutTime = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const expectedReturnTime = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+    const payload = { purpose: `Lifecycle test ${Date.now()}`, destination: "Test destination", expectedOutTime, expectedReturnTime };
+
+    try {
+      const first = await request(app).post("/api/gate-passes").set(tenantAuthorization).send(payload);
+      expect(first.status).toBe(201);
+      createdIds.push(first.body.gatePass.id);
+
+      const duplicate = await request(app).post("/api/gate-passes").set(tenantAuthorization).send({ ...payload, purpose: `${payload.purpose} duplicate` });
+      expect(duplicate.status).toBe(409);
+      expect(duplicate.body.activeGatePass.id).toBe(first.body.gatePass.id);
+
+      const wardenLogin = await request(app).post("/api/auth/resolve-login").send({ email: "warden@city-complex.hostin.local", password: "city-complex@123" });
+      const wardenAuthorization = { Authorization: `Bearer ${wardenLogin.body.accessToken}`, "x-org-id": orgId };
+      expect((await request(app).post(`/api/gate-passes/${first.body.gatePass.id}/approve`).set(wardenAuthorization).send({ status: "approved" })).status).toBe(200);
+
+      const guardLogin = await request(app).post("/api/auth/resolve-login").send({ email: "security@city-complex.hostin.local", password: "city-complex@123" });
+      const guardAuthorization = { Authorization: `Bearer ${guardLogin.body.accessToken}`, "x-org-id": orgId };
+      expect((await request(app).post(`/api/gate-passes/${first.body.gatePass.id}/check-out`).set(guardAuthorization)).status).toBe(200);
+      const resolved = await request(app).post(`/api/gate-passes/${first.body.gatePass.id}/check-in`).set(guardAuthorization);
+      expect(resolved.status).toBe(200);
+      expect(resolved.body.gatePass.status).toBe("completed");
+      expect(resolved.body.gatePass.actual_in_time).toBeTruthy();
+
+      const next = await request(app).post("/api/gate-passes").set(tenantAuthorization).send({ ...payload, purpose: `${payload.purpose} next` });
+      expect(next.status).toBe(201);
+      createdIds.push(next.body.gatePass.id);
+      expect((await request(app).post(`/api/gate-passes/${next.body.gatePass.id}/cancel`).set(tenantAuthorization)).status).toBe(200);
+    } finally {
+      if (createdIds.length) {
+        await prisma.notification.deleteMany({ where: { reference_id: { in: createdIds } } });
+        await prisma.gatePass.deleteMany({ where: { id: { in: createdIds } } });
+      }
+    }
+  });
+
   it("returns only linked-child data for the parent workspace", async () => {
     const login = await request(app).post("/api/auth/resolve-login").send({ email: "parent@city-complex.hostin.local", password: "city-complex@123" });
     const response = await request(app).get("/api/parents/ward").set("Authorization", `Bearer ${login.body.accessToken}`).set("x-org-id", login.body.session.orgId);

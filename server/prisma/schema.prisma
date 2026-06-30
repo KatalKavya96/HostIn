@@ -66,6 +66,7 @@ enum PassStatus {
   rejected
   cancelled
   completed
+  expired
 }
 
 enum VisitStatus {

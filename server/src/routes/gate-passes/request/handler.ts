@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { AuthorizedRequest } from "../../../middleware/orgAccess";
 import { prisma } from "../../../lib/prisma";
 import { notifyRoles } from "../../../lib/notifications";
+import { expireUnusedGatePasses } from "../../../lib/gatePassLifecycle";
 
 export const handleRequestPass = async (req: AuthorizedRequest, res: Response) => {
   const orgId = req.headers["x-org-id"] as string;
@@ -29,23 +30,22 @@ export const handleRequestPass = async (req: AuthorizedRequest, res: Response) =
   }
 
   try {
-    // Check if the user is a tenant in the organization
-    const tenantProfile = await prisma.tenantProfile.findFirst({
-      where: {
-        user_id: userId,
-        org_id: orgId,
-        is_active: true,
-      },
-    });
+    await expireUnusedGatePasses(prisma, orgId, userId);
+    const [tenantProfile, openPass] = await Promise.all([
+      prisma.tenantProfile.findFirst({ where: { user_id: userId, org_id: orgId, is_active: true } }),
+      prisma.gatePass.findFirst({ where: { org_id: orgId, tenant_id: userId, status: { in: ["pending", "approved"] } }, orderBy: { created_at: "desc" } }),
+    ]);
 
     if (!tenantProfile) {
       return res.status(403).json({ error: "Only active tenants can request a gate pass" });
     }
+    if (openPass) {
+      return res.status(409).json({ error: "Complete or cancel your current gate pass before creating another.", activeGatePass: openPass });
+    }
 
     const qrCode = `GP-${crypto.randomUUID()}`;
 
-    const gatePass = await prisma.$transaction(async (tx) => {
-      const created = await tx.gatePass.create({ data: {
+    const gatePass = await prisma.gatePass.create({ data: {
         org_id: orgId,
         tenant_id: userId as string,
         purpose,
@@ -55,15 +55,21 @@ export const handleRequestPass = async (req: AuthorizedRequest, res: Response) =
         status: "pending",
         qr_code: qrCode,
       } });
-      await notifyRoles(tx, ["owner", "warden", "guard"], { orgId, title: "Gate pass awaiting review", body: `${purpose} · ${destination}`, type: "gate_pass", referenceId: created.id, referenceType: "gate_pass" }, userId);
-      return created;
-    });
 
-    return res.status(201).json({
+    res.status(201).json({
       message: "Gate pass requested successfully",
       gatePass,
     });
+    try {
+      await notifyRoles(prisma, ["owner", "warden", "guard"], { orgId, title: "Gate pass awaiting review", body: `${purpose} · ${destination}`, type: "gate_pass", referenceId: gatePass.id, referenceType: "gate_pass" }, userId);
+    } catch (notificationError) {
+      console.error("Gate pass notification error:", notificationError);
+    }
+    return;
   } catch (error) {
+    if (typeof error === "object" && error && "code" in error && error.code === "P2002") {
+      return res.status(409).json({ error: "You already have an open gate pass." });
+    }
     console.error("Request gate pass error:", error);
     return res.status(500).json({ error: "An error occurred during gate pass request" });
   }
