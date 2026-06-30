@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ProductThemeBoundary } from "./components/product-theme-boundary";
 
 export const metadata: Metadata = {
   title: "Hostin — Run your PG like a real business",
@@ -30,6 +31,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <ProductThemeBoundary />
         {children}
       </body>
     </html>

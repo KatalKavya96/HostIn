@@ -1,8 +1,5 @@
 "use client";
 
-const storageKey = "hostin-color-theme";
-const customStorageKey = "hostin-custom-color";
-
 function mix(hex: string, target: string, weight: number) {
   const parse = (value: string) => [1, 3, 5].map((index) => parseInt(value.slice(index, index + 2), 16));
   const [r, g, b] = parse(hex);
@@ -34,6 +31,11 @@ export function applyCustomColor(hex: string) {
   clearCustomVariables();
   document.documentElement.dataset.theme = "custom";
   Object.entries(customVariables(hex)).forEach(([name, value]) => document.documentElement.style.setProperty(name, value));
-  window.localStorage.setItem(storageKey, "custom");
-  window.localStorage.setItem(customStorageKey, hex);
+}
+
+export function applyDefaultTheme() {
+  clearCustomVariables();
+  document.documentElement.dataset.theme = "hostin-coral";
+  window.localStorage.removeItem("hostin-color-theme");
+  window.localStorage.removeItem("hostin-custom-color");
 }

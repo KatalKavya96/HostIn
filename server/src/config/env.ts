@@ -17,4 +17,8 @@ if (!result.success) {
 }
 
 export const env = result.data;
-export const allowedOrigins = env.CLIENT_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
+const firstPartyOrigins = ["http://localhost:3000", "https://host-in-beta.vercel.app"];
+export const allowedOrigins = Array.from(new Set([
+  ...firstPartyOrigins,
+  ...env.CLIENT_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean),
+]));
