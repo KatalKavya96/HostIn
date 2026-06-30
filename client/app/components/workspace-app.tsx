@@ -3,7 +3,7 @@
 import { CSSProperties, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { applyCustomColor } from "./theme-system";
+import { applyCustomColor, applyDefaultTheme } from "./theme-system";
 import { ClientOnboardingWizard } from "./client-onboarding-wizard";
 
 type Role = "owner" | "warden" | "guard" | "security" | "staff" | "tenant" | "parent" | "platform";
@@ -522,6 +522,7 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
   const propertyName = titleFromSlug(workspace);
 
   useEffect(() => {
+    applyDefaultTheme();
     try {
       const stored = window.sessionStorage.getItem("hostin-session");
       if (!stored) return;

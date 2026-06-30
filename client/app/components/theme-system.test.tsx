@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { applyCustomColor } from "./theme-system";
+import { applyCustomColor, applyDefaultTheme } from "./theme-system";
 
 describe("admin-applied client theme", () => {
   beforeEach(() => {
@@ -8,12 +8,19 @@ describe("admin-applied client theme", () => {
     document.documentElement.removeAttribute("style");
   });
 
-  it("applies and persists a client theme without exposing a client-side picker", () => {
+  it("applies a client theme only to the active role app", () => {
     applyCustomColor("#123456");
 
     expect(document.documentElement).toHaveAttribute("data-theme", "custom");
     expect(document.documentElement.style.getPropertyValue("--accent")).toBe("#123456");
-    expect(window.localStorage.getItem("hostin-color-theme")).toBe("custom");
-    expect(window.localStorage.getItem("hostin-custom-color")).toBe("#123456");
+    expect(window.localStorage.getItem("hostin-color-theme")).toBeNull();
+  });
+
+  it("restores HostIn branding when leaving a client role app", () => {
+    applyCustomColor("#123456");
+    applyDefaultTheme();
+
+    expect(document.documentElement).toHaveAttribute("data-theme", "hostin-coral");
+    expect(document.documentElement.style.getPropertyValue("--accent")).toBe("");
   });
 });
