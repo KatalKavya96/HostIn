@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "remixicon/fonts/remixicon.css";
 
 :root {
   --background: #f7f8fa;
@@ -15,6 +16,9 @@
   --accent-gradient-end: #0b6b63;
   --accent-shadow: rgba(15, 118, 110, 0.2);
   --accent-focus: rgba(15, 118, 110, 0.14);
+  --accent-ring: rgba(15, 118, 110, 0.28);
+  --accent-muted: #f6fffd;
+  --accent-on: #ffffff;
   --nav-active-start: #ecfdf8;
   --nav-active-end: #f4fffc;
   --hero-start: #14877d;
@@ -3185,3 +3189,338 @@ select:focus {
 /* Parent layout alignment with the owner and warden dashboard shells. */
 .parentDashboard,.parentPageGrid,.parentHomeGrid{display:grid;gap:16px;min-width:0;width:100%}.parentDashboard>*,.parentPageGrid>*,.parentHomeGrid>*{min-width:0}.parentHomeGrid,.parentPageGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.parentHero,.parentChildHero{min-height:150px}.parentSummaryCards{gap:14px;min-width:0}.parentSummaryCards>article,.parentSummaryCards>button{appearance:none;cursor:pointer;font:inherit;min-height:126px}.parentSummaryCards strong{overflow-wrap:anywhere}.parentPageGrid>.parentConcernForm{grid-column:auto}
 @media(max-width:1180px){.parentHomeGrid,.parentPageGrid{grid-template-columns:1fr}.parentPageGrid>.parentConcernForm{grid-column:1/-1}}
+
+/* Authenticated workspace system: compact, responsive, and driven by brand tokens. */
+.appTopbar {
+  backdrop-filter: blur(16px);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 1px 0 var(--line), 0 8px 24px rgba(16, 24, 40, 0.03);
+  gap: 18px;
+  height: 72px;
+  padding: 0 clamp(20px, 3vw, 48px);
+}
+.appTopbar .brand { font-size: 27px; }
+.appWorkspace {
+  background: var(--background);
+  gap: 24px;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: calc(100vh - 72px);
+  padding: 24px clamp(20px, 3vw, 48px) 48px;
+}
+.appSidebar {
+  border-radius: 12px;
+  box-shadow: none;
+  padding: 12px;
+  top: 88px;
+}
+.workspaceBadge {
+  background: var(--accent-muted);
+  border-radius: 9px;
+  margin-bottom: 12px;
+  padding: 14px;
+}
+.workspaceBadge span,.workspaceBadge small { font-size: 11px; font-weight: 700; }
+.workspaceBadge strong { font-size: 19px; letter-spacing: 0; }
+.moduleGroup { margin-top: 12px; padding-top: 14px; }
+.moduleGroup p { font-size: 10px; letter-spacing: .08em; margin: 0 8px 7px; text-transform: uppercase; }
+.navItem {
+  align-items: center;
+  border-radius: 8px;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 10px;
+  margin: 2px 0;
+  min-height: 40px;
+  padding: 0 10px;
+  text-decoration: none;
+}
+.navItem i { color: #667085; font-size: 18px; font-weight: 400; line-height: 1; width: 20px; }
+.navItem:hover,.navItem.active { background: var(--accent-muted); border-color: transparent; box-shadow: inset 3px 0 0 var(--accent); color: var(--accent-strong); }
+.navItem:hover i,.navItem.active i { color: var(--accent); }
+.sidebarLogout { align-items: center; border-radius: 8px; display: flex; font-size: 12px; gap: 9px; justify-content: center; margin-top: 18px; }
+.sidebarLogout i { font-size: 16px; }
+.content { min-width: 0; }
+.pageHeader,.platformPageHeader { border-bottom: 1px solid var(--soft-line); margin-bottom: 20px; padding: 4px 0 20px; }
+.pageHeader h2 { font-size: clamp(28px, 3vw, 40px); line-height: 1.12; margin: 6px 0 8px; }
+.pageHeader p { font-size: 14px; max-width: 680px; }
+.pageHeader .crumb { font-size: 10px; letter-spacing: .08em; }
+.syncBanner { background: var(--accent-muted); border-color: var(--accent-soft-border); border-radius: 8px; box-shadow: none; margin-bottom: 18px; padding: 10px 12px; }
+.syncBanner span { font-size: 10px; }
+.panel { border-radius: 10px; box-shadow: 0 1px 2px rgba(16,24,40,.04); padding: 20px; }
+.panelTitle { margin-bottom: 16px; }
+.panelTitle h2,.panelTitle h3 { font-size: 17px; }
+.panelTitle span { border-radius: 6px; font-size: 10px; padding: 6px 8px; }
+.platformKpi,.metricCard,.parentSummaryCards>article,.parentSummaryCards>button,.wardenKpis button { border-radius: 10px; }
+.platformKpi,.metricCard { min-height: 124px; }
+.platformKpi>strong,.metricCard strong { font-size: 28px; }
+.platformKpis,.wardenKpis { gap: 12px; }
+.notificationIconButton::before { display: none; }
+.notificationIconButton i { font-size: 20px; line-height: 1; }
+.notificationIconButton,.profileMenuButton { height: 40px; width: 40px; }
+.propertySwitcher { min-height: 40px; padding: 3px 5px 3px 12px; }
+.propertySwitcher select { min-height: 32px; min-width: 150px; }
+.mobileNavTrigger,.mobileNavOverlay,.mobileNavDrawer { display: none; }
+.iconButton { align-items: center; background: transparent; border: 0; border-radius: 7px; color: var(--foreground); display: inline-flex; height: 36px; justify-content: center; width: 36px; }
+.iconButton:hover { background: var(--accent-muted); color: var(--accent); }
+
+@media (max-width: 900px) {
+  .appWorkspace { grid-template-columns: 208px minmax(0, 1fr); padding-inline: 20px; }
+  .propertySwitcher span { display: none; }
+  .propertySwitcher select { min-width: 128px; }
+}
+@media (max-width: 720px) {
+  .appTopbar { height: 64px; padding: 0 16px; }
+  .appTopbar .brand { font-size: 24px; }
+  .appWorkspace { display: block; min-height: calc(100vh - 64px); padding: 20px 16px 40px; }
+  .appSidebar { display: none; }
+  .appTopbarActions { gap: 8px; }
+  .propertySwitcher { max-width: 132px; }
+  .propertySwitcher select { font-size: 12px; min-width: 0; }
+  .notificationIconButton,.profileMenuButton { height: 36px; width: 36px; }
+  .mobileNavTrigger { align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--foreground); display: inline-flex; font-size: 20px; height: 36px; justify-content: center; width: 36px; }
+  .mobileNavOverlay { background: rgba(16,24,40,.38); display: block; inset: 0; position: fixed; z-index: 90; }
+  .mobileNavDrawer { background: var(--panel); box-shadow: 20px 0 52px rgba(16,24,40,.18); display: grid; grid-template-rows: auto minmax(0,1fr); height: 100dvh; left: 0; max-width: calc(100vw - 42px); outline: none; padding: 14px; position: fixed; top: 0; width: 300px; z-index: 91; }
+  .mobileNavDrawerHeader { align-items: center; border-bottom: 1px solid var(--soft-line); display: flex; justify-content: space-between; padding: 0 0 12px 4px; }
+  .mobileNavDrawerHeader h2 { font-size: 14px; margin: 0; }
+  .mobileNavDrawerContent { overflow: auto; padding-top: 6px; }
+  .mobileNavDrawer .workspaceBadge { margin-top: 2px; }
+  .pageHeader,.platformPageHeader { margin-bottom: 16px; padding-bottom: 16px; }
+  .pageHeader h2 { font-size: 27px; }
+  .pageHeader p { font-size: 13px; }
+  .syncBanner { align-items: flex-start; font-size: 12px; }
+  .panel { padding: 16px; }
+  .platformKpis,.wardenKpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .platformKpi:last-child,.wardenKpis button:last-child { grid-column: 1 / -1; }
+}
+
+/* Dashboard appearance controls stay inside authenticated workspaces. */
+.appWorkspace .panel,.appWorkspace .sidebar,.appWorkspace .metricCard,.appWorkspace .platformKpi,.appWorkspace .platformClientCard,.appWorkspace .parentSummaryCards>article,.appWorkspace .parentSummaryCards>button,.appWorkspace .wardenKpis button,.appWorkspace .wardenRoomSnapshot>div button,.appWorkspace .documentCardGrid article,.appWorkspace .parentMealGrid article,.appWorkspace .parentContactGrid article,.appWorkspace .contactCard,.appWorkspace .clientControlHeader { border-radius: 8px; }
+.appWorkspace input,.appWorkspace select,.appWorkspace textarea,.appWorkspace .propertySwitcher,.appWorkspace .clientFilters,.appWorkspace .statusPill,.appWorkspace .profilePopover,.appWorkspace .notificationPopover { border-radius: 6px; }
+.appWorkspace .outlineButton,.appWorkspace .gradientButton,.appWorkspace .navItem,.appWorkspace .sidebarLogout,.dashboardThemeToggle,.appWorkspace .notificationIconButton,.appWorkspace .profileMenuButton { border-radius: 6px; }
+.appWorkspace .statusPill { border-radius: 999px; }
+.dashboardThemeToggle { align-items: center; background: var(--panel); border: 1px solid var(--line); color: var(--foreground); display: inline-flex; height: 40px; justify-content: center; width: 40px; }
+.dashboardThemeToggle:hover { background: var(--accent-muted); border-color: var(--accent-soft-border); color: var(--accent); }
+.dashboardThemeToggle i { font-size: 18px; line-height: 1; }
+
+html.dark .appTopbar,
+html.dark .appWorkspace {
+  --background: #101828;
+  --foreground: #f8fafc;
+  --muted: #98a2b3;
+  --line: #344054;
+  --soft-line: #253247;
+  --panel: #182230;
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, #182230);
+  --accent-soft-border: color-mix(in srgb, var(--accent) 48%, #344054);
+  --accent-muted: color-mix(in srgb, var(--accent) 12%, #182230);
+  --accent-focus: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+html.dark .appTopbar { background: rgba(16, 24, 40, .94); border-color: var(--line); }
+html.dark .appWorkspace { background: var(--background); }
+html.dark .appWorkspace .sidebar,html.dark .appWorkspace .panel,html.dark .appWorkspace .metricCard,html.dark .appWorkspace .platformKpi,html.dark .appWorkspace .parentSummaryCards>article,html.dark .appWorkspace .parentSummaryCards>button,html.dark .appWorkspace .wardenKpis button { background: var(--panel); border-color: var(--line); color: var(--foreground); }
+html.dark .appWorkspace input,html.dark .appWorkspace select,html.dark .appWorkspace textarea,html.dark .appWorkspace .propertySwitcher,html.dark .appWorkspace .notificationIconButton,html.dark .dashboardThemeToggle { background: #101828; border-color: var(--line); color: var(--foreground); }
+html.dark .appWorkspace .metricCard,html.dark .appWorkspace .platformKpi,html.dark .appWorkspace .parentSummaryCards>article,html.dark .appWorkspace .parentSummaryCards>button { box-shadow: none; }
+html.dark .appWorkspace .navItem { color: #cbd5e1; }
+html.dark .appWorkspace .navItem i { color: #98a2b3; }
+html.dark .appWorkspace .navItem:hover,html.dark .appWorkspace .navItem.active { color: #ffffff; }
+html.dark .appWorkspace .workspaceBadge,html.dark .appWorkspace .syncBanner { background: var(--accent-muted); border-color: var(--accent-soft-border); }
+html.dark .appWorkspace .recordList button,html.dark .appWorkspace .clientFilters button.active,html.dark .appWorkspace .roomCells button,html.dark .appWorkspace .documentCardGrid article,html.dark .appWorkspace .parentContactGrid article { background: var(--panel); border-color: var(--line); color: var(--foreground); }
+html.dark .appWorkspace .pageHeader,html.dark .appWorkspace .platformPageHeader { border-color: var(--line); }
+html.dark .appWorkspace .roomCells button.full { background: #1e293b; }
+html.dark .mobileNavDrawer { background: #131e2e; color: #edf2f7; }
+
+/* Dark dashboard: neutral hierarchy first, customer colour second. */
+html.dark .appTopbar,
+html.dark .appWorkspace {
+  --background: #0b1220;
+  --foreground: #edf2f7;
+  --muted: #94a3b8;
+  --line: #27364d;
+  --soft-line: #1d2a3d;
+  --panel: #131e2e;
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, #131e2e);
+  --accent-soft-border: color-mix(in srgb, var(--accent) 38%, #27364d);
+  --accent-muted: color-mix(in srgb, var(--accent) 10%, #131e2e);
+}
+html.dark .appTopbar { background: #0e1726; box-shadow: 0 1px 0 #27364d; }
+html.dark .appWorkspace { background: #0b1220; }
+html.dark .appWorkspace .sidebar,
+html.dark .appWorkspace .panel { background: #131e2e; border-color: #27364d; }
+html.dark .appWorkspace .workspaceBadge,
+html.dark .appWorkspace .syncBanner { background: #182536; border-color: #2a3c55; }
+html.dark .appWorkspace .syncBanner span { background: #223148; color: #b9c6d8; }
+html.dark .appWorkspace .roomEmptyState {
+  background: #101a29;
+  border-color: #31425a;
+  color: var(--foreground);
+}
+html.dark .appWorkspace .roomEmptyState strong { color: #e7edf5; }
+html.dark .appWorkspace .roomEmptyState p { color: #94a3b8; }
+html.dark .appWorkspace .propertySwitcher,
+html.dark .appWorkspace .propertySwitcher select,
+html.dark .appWorkspace .notificationIconButton,
+html.dark .dashboardThemeToggle { background: #111b2a; border-color: #2b3a50; color: #dbe5f1; }
+html.dark .appWorkspace .propertySwitcher span { color: #94a3b8; }
+html.dark .appWorkspace .profileMenuButton { background: var(--accent); box-shadow: none; }
+html.dark .appWorkspace .gradientButton { background: var(--accent); box-shadow: none; color: var(--accent-on); }
+html.dark .appWorkspace .outlineButton { background: #172438; border-color: #32445d; color: #d9e4f2; }
+html.dark .appWorkspace .outlineButton:hover { background: #1d2d43; border-color: var(--accent-soft-border); color: #ffffff; }
+html.dark .appWorkspace .panelTitle span,
+html.dark .appWorkspace .statusPill.pending,
+html.dark .appWorkspace .statusPill.unpaid,
+html.dark .appWorkspace .statusPill.partial,
+html.dark .appWorkspace .statusPill.maintenance { background: #233249; color: #c5d0df; }
+html.dark .appWorkspace .recordList button,
+html.dark .appWorkspace .actionRecord,
+html.dark .appWorkspace .tenantListItem,
+html.dark .appWorkspace .communityPost,
+html.dark .appWorkspace .tenantDetailCard,
+html.dark .appWorkspace .occupantRow,
+html.dark .appWorkspace .billCard,
+html.dark .appWorkspace .contactCard,
+html.dark .appWorkspace .documentCardGrid article,
+html.dark .appWorkspace .parentContactGrid article { background: #162235; border-color: #2a3b53; color: var(--foreground); }
+html.dark .appWorkspace .ownerPropertyCard footer button,
+html.dark .appWorkspace .ownerPropertyMiniList button,
+html.dark .appWorkspace .attentionList button,
+html.dark .appWorkspace .quickActionGrid button {
+  background: #162235;
+  border-color: #2a3b53;
+  color: #edf2f7;
+}
+html.dark .appWorkspace .ownerPropertyMiniList button:hover,
+html.dark .appWorkspace .attentionList button:hover,
+html.dark .appWorkspace .quickActionGrid button:hover {
+  background: #1b2a3f;
+  border-color: var(--accent-soft-border);
+}
+html.dark .appWorkspace .ownerPropertyMiniList b,
+html.dark .appWorkspace .attentionList span,
+html.dark .appWorkspace .quickActionGrid button { color: #edf2f7; }
+html.dark .appWorkspace .ownerPropertyMiniList span,
+html.dark .appWorkspace .ownerPropertyMiniList small { color: #94a3b8; }
+html.dark .appWorkspace .attentionList strong {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+html.dark .appWorkspace .recordList button:hover,
+html.dark .appWorkspace .tenantListItem.active { background: #1b2a3f; border-color: var(--accent-soft-border); box-shadow: none; }
+html.dark .appWorkspace .communityToggle,
+html.dark .appWorkspace .clientFilters { background: #0f1928; border-color: #2a3b53; }
+html.dark .appWorkspace .communityToggle button.active,
+html.dark .appWorkspace .clientFilters button.active { background: #223148; box-shadow: none; color: #ffffff; }
+html.dark .appWorkspace .directorySkeletonRow,
+html.dark .appWorkspace .roomCells button,
+html.dark .appWorkspace .wardenRoomSnapshot>div button { background: #172438; border-color: #2b3c54; color: var(--foreground); }
+html.dark .appWorkspace .wardenRoomSnapshot>div button.partial,
+html.dark .appWorkspace .roomCells button.partial { background: #2b261c; border-color: #67522c; }
+html.dark .appWorkspace .wardenRoomSnapshot>div button.empty,
+html.dark .appWorkspace .roomCells button.empty { background: var(--accent-muted); border-color: var(--accent-soft-border); }
+html.dark .appWorkspace .tenantListItem strong,
+html.dark .appWorkspace .occupantRow strong,
+html.dark .appWorkspace .roomDetailsHeader h3 { color: var(--foreground); }
+html.dark .appWorkspace .modalHeader button { background: #223148; color: #dbe5f1; }
+html.dark .appWorkspace .profilePopover,
+html.dark .appWorkspace .notificationPopover { background: #152134; border-color: #2c3d55; color: var(--foreground); }
+html.dark .appWorkspace .profilePopover a,
+html.dark .appWorkspace .profilePopover button,
+html.dark .appWorkspace .notificationItem { color: #dbe5f1; }
+html.dark .appWorkspace .notificationItem.unread { background: #1c2b40; }
+
+/* Room board uses purpose-built surfaces, so it opts into the same dark contract explicitly. */
+html.dark .appWorkspace .roomMetric,
+html.dark .appWorkspace .roomDetailsPanel,
+html.dark .appWorkspace .roomDetailsPanel.isIdle { background: #131e2e; border-color: #27364d; color: var(--foreground); }
+html.dark .appWorkspace .roomMetric strong,
+html.dark .appWorkspace .roomPanelPlaceholder strong { color: #edf2f7; }
+html.dark .appWorkspace .roomMetric span,
+html.dark .appWorkspace .roomMetric small,
+html.dark .appWorkspace .roomPanelPlaceholder p { color: #94a3b8; }
+html.dark .appWorkspace .roomsToolbar input,
+html.dark .appWorkspace .roomsToolbar select { background: #101a29; border-color: #2b3c54; color: #dbe5f1; }
+html.dark .appWorkspace .roomsToolbar input::placeholder { color: #718198; }
+html.dark .appWorkspace .floorLabel span { color: #dbe5f1; }
+html.dark .appWorkspace .floorLabel small,
+html.dark .appWorkspace .roomLegend span { color: #94a3b8; }
+html.dark .appWorkspace .roomDetailsHeader,
+html.dark .appWorkspace .occupantList { border-color: #27364d; }
+html.dark .appWorkspace .assignBox { background: #172438; border-color: #2b3c54; }
+
+/* Top-bar controls are siblings of the workspace, not children of it. */
+html.dark .appTopbar .propertySwitcher,
+html.dark .appTopbar .propertySwitcher select,
+html.dark .appTopbar .notificationIconButton,
+html.dark .appTopbar .dashboardThemeToggle {
+  background: #111b2a;
+  border-color: #2b3a50;
+  color: #dbe5f1;
+}
+html.dark .appTopbar .propertySwitcher span { color: #94a3b8; }
+html.dark .appTopbar .propertySwitcher select { color-scheme: dark; }
+html.dark .appTopbar .notificationIconButton:hover,
+html.dark .appTopbar .dashboardThemeToggle:hover { background: #1a293d; }
+
+/* Account and notification menus are top-bar overlays. */
+html.dark .appTopbar .profilePopover,
+html.dark .appTopbar .notificationPopover {
+  background: #131e2e;
+  border-color: #2b3c54;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .32);
+  color: #edf2f7;
+}
+html.dark .appTopbar .profilePopoverHeader { border-color: #2b3c54; }
+html.dark .appTopbar .profilePopoverHeader strong,
+html.dark .appTopbar .notificationPopoverHeader strong { color: #edf2f7; }
+html.dark .appTopbar .profilePopoverHeader span,
+html.dark .appTopbar .profilePopoverHeader small,
+html.dark .appTopbar .notificationPopoverHeader small,
+html.dark .appTopbar .notificationItem p,
+html.dark .appTopbar .notificationItem small { color: #94a3b8; }
+html.dark .appTopbar .profilePopover a,
+html.dark .appTopbar .profilePopover button,
+html.dark .appTopbar .notificationItem { color: #dbe5f1; }
+html.dark .appTopbar .profilePopover a:hover,
+html.dark .appTopbar .profilePopover button:hover,
+html.dark .appTopbar .notificationItem.unread { background: #1d2c41; color: #ffffff; }
+html.dark .appTopbar .notificationPopover .roomEmptyState {
+  background: #101a29;
+  border-color: #31425a;
+  color: #edf2f7;
+}
+html.dark .appTopbar .notificationPopover .roomEmptyState strong { color: #edf2f7; }
+html.dark .appTopbar .notificationPopover .roomEmptyState p { color: #94a3b8; }
+
+/* Theme-complete loading and typography states. */
+.appTopbar .brand { color: #101828; }
+html.dark .appTopbar .brand,
+html.dark .sessionLoading .brand { color: #f8fafc; }
+html.dark .appTopbar .brand span:first-child,
+html.dark .appTopbar .brand span:last-child,
+html.dark .sessionLoading .brand span:first-child,
+html.dark .sessionLoading .brand span:last-child { color: var(--accent); }
+html.dark .sessionLoading { background: #0b1220; color: #edf2f7; }
+html.dark .sessionLoading .skeletonLine,
+html.dark .appWorkspace .skeletonLine,
+html.dark .appWorkspace .skeletonIcon,
+html.dark .appWorkspace .skeletonRoom,
+html.dark .appWorkspace .skeletonBeds i,
+html.dark .appWorkspace .skeletonDetails i,
+html.dark .appWorkspace .skeletonInfoRows span,
+html.dark .appWorkspace .skeletonButton {
+  background: linear-gradient(90deg, #162235 0%, #213149 48%, #162235 100%);
+  background-size: 220% 100%;
+}
+html.dark .appWorkspace h1,
+html.dark .appWorkspace h2,
+html.dark .appWorkspace h3,
+html.dark .appWorkspace h4,
+html.dark .appWorkspace .ownerWelcome h2,
+html.dark .appWorkspace .platformPageHeader h2 { color: #edf2f7; }
+html.dark .appWorkspace .ownerWelcome>p:not(.sectionEyebrow),
+html.dark .appWorkspace .pageHeader>div>p:not(.crumb),
+html.dark .appWorkspace .platformPageHeader>div>p:last-child { color: #a8b6c9; }
+
+@media (max-width: 720px) {
+  .dashboardThemeToggle { height: 36px; width: 36px; }
+}

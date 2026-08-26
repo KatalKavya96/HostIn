@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ProductThemeBoundary } from "./components/product-theme-boundary";
+import { ThemeProvider } from "./components/theme-provider";
 
 export const metadata: Metadata = {
   title: "Hostin — Run your PG like a real business",
@@ -30,9 +31,11 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
-        <ProductThemeBoundary />
-        {children}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <ThemeProvider>
+          <ProductThemeBoundary />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

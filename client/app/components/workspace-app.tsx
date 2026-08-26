@@ -3,6 +3,8 @@
 import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import * as Dialog from "@radix-ui/react-dialog";
+import { useTheme } from "next-themes";
 import { applyCustomColor, applyDefaultTheme } from "./theme-system";
 import { ClientOnboardingWizard } from "./client-onboarding-wizard";
 
@@ -649,6 +651,67 @@ function titleFromSlug(slug: string) {
     .join(" ");
 }
 
+function workspaceNavIcon(label: string) {
+  const icons: Record<string, string> = {
+    Dashboard: "ri-dashboard-3-line",
+    Clients: "ri-building-4-line",
+    Analytics: "ri-line-chart-line",
+    Overview: "ri-layout-grid-line",
+    Properties: "ri-building-line",
+    People: "ri-group-line",
+    Credentials: "ri-shield-keyhole-line",
+    Requests: "ri-inbox-2-line",
+    Billing: "ri-bank-card-line",
+    Reports: "ri-file-chart-line",
+    Settings: "ri-settings-3-line",
+    Rooms: "ri-hotel-bed-line",
+    Tenants: "ri-team-line",
+    Gate: "ri-door-open-line",
+    Visitors: "ri-user-add-line",
+    Finance: "ri-money-rupee-circle-line",
+    Community: "ri-discuss-line",
+    Complaints: "ri-customer-service-2-line",
+    Announcements: "ri-megaphone-line",
+    Mess: "ri-restaurant-line",
+    Documents: "ri-file-text-line",
+    Staff: "ri-briefcase-4-line",
+    Parents: "ri-parent-line",
+    Profile: "ri-user-3-line",
+  };
+  return icons[label] ?? "ri-layout-grid-line";
+}
+
+function MobileWorkspaceMenu({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Dialog.Root onOpenChange={setOpen} open={open}>
+      <Dialog.Trigger aria-label="Open workspace navigation" className="mobileNavTrigger" type="button">
+        <i aria-hidden="true" className="ri-menu-line" />
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="mobileNavOverlay" />
+        <Dialog.Content aria-describedby={undefined} className="mobileNavDrawer">
+          <div className="mobileNavDrawerHeader">
+            <Dialog.Title>Workspace navigation</Dialog.Title>
+            <Dialog.Close aria-label="Close workspace navigation" className="iconButton" type="button">
+              <i aria-hidden="true" className="ri-close-line" />
+            </Dialog.Close>
+          </div>
+          <div
+            className="mobileNavDrawerContent"
+            onClick={(event) => {
+              if ((event.target as Element).closest("button, a")) setOpen(false);
+            }}
+          >
+            {children}
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 export function WorkspaceApp({ workspace, role, profile }: { workspace: string; role: string; profile?: string }) {
   const normalizedRole = normalizeRole(role);
   const [login, setLogin] = useState<LoginState | null>(null);
@@ -657,6 +720,8 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
   const [message, setMessage] = useState("Login to open this private workspace.");
   const [busy, setBusy] = useState(false);
   const [gatePassLocked, setGatePassLocked] = useState(false);
+  const { setTheme, theme } = useTheme();
+  const darkMode = theme === "dark";
   const propertyName = titleFromSlug(workspace);
 
   useEffect(() => {
@@ -684,6 +749,10 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
       setSessionChecked(true);
     }
   }, [normalizedRole, workspace]);
+
+  function toggleDarkMode() {
+    setTheme(darkMode ? "light" : "dark");
+  }
 
   const allowedModules = useMemo(() => {
       const available = modules.filter((module) => module.roles.includes(normalizedRole));
@@ -721,6 +790,60 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
           },
         ];
   }, [login, normalizedRole, profile, propertyName, workspace]);
+
+  const renderWorkspaceNavigation = () => (
+    <>
+      <div className="workspaceBadge">
+        <span>{propertyName}</span>
+        <strong>{roleLabel(role)}</strong>
+        <small>{login?.userName}</small>
+      </div>
+      {normalizedRole === "platform" ? (
+        <div className="moduleGroup platformNavGroup">
+          <p>Control center</p>
+          <Link className={!profile ? "active navItem" : "navItem"} href="/1forge/platform">
+            <i aria-hidden="true" className={workspaceNavIcon("Dashboard")} />
+            <span>Dashboard</span>
+          </Link>
+          <Link className={profile && profile !== "analytics" ? "active navItem" : "navItem"} href="/1forge/platform">
+            <i aria-hidden="true" className={workspaceNavIcon("Clients")} />
+            <span>Clients</span>
+          </Link>
+          <Link className={profile === "analytics" ? "active navItem" : "navItem"} href="/1forge/platform/analytics">
+            <i aria-hidden="true" className={workspaceNavIcon("Analytics")} />
+            <span>Analytics</span>
+          </Link>
+        </div>
+      ) : (
+        <div className="moduleGroup">
+          <p>Workspace</p>
+          {allowedModules.map((module) => (
+            <button className={module.id === activeModule.id ? "active navItem" : "navItem"} key={module.id} onClick={() => setActiveId(module.id)} type="button">
+              <i aria-hidden="true" className={workspaceNavIcon(module.title)} />
+              <span>{module.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {normalizedRole !== "platform" && (login?.availableRoles?.length ?? 0) > 1 ? (
+        <div className="moduleGroup roleSwitcher">
+          <p>Switch role</p>
+          {login?.availableRoles
+            ?.filter((item) => item.workspace === workspace)
+            .map((item) => (
+              <Link className={normalizeRole(item.role) === normalizedRole ? "active navItem" : "navItem"} href={item.destination} key={`${item.orgId}-${item.role}`}>
+                <i aria-hidden="true" className="ri-arrow-left-right-line" />
+                <span>{roleLabel(item.role)}</span>
+              </Link>
+            ))}
+        </div>
+      ) : null}
+      <button className="outlineButton fullButton sidebarLogout" onClick={logout} type="button">
+        <i aria-hidden="true" className="ri-logout-box-r-line" />
+        Sign out
+      </button>
+    </>
+  );
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -894,6 +1017,7 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
   return (
     <main>
       <header className="topbar appTopbar">
+        <MobileWorkspaceMenu>{renderWorkspaceNavigation()}</MobileWorkspaceMenu>
         <button className="brand" onClick={() => setActiveId("overview")} type="button">
           <span>host</span>in<span>.</span>
         </button>
@@ -917,6 +1041,9 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
               </select>
             </label>
           ) : null}
+          <button aria-label={darkMode ? "Use light appearance" : "Use dark appearance"} className="dashboardThemeToggle" onClick={toggleDarkMode} title={darkMode ? "Use light appearance" : "Use dark appearance"} type="button">
+            <i aria-hidden="true" className={darkMode ? "ri-sun-line" : "ri-moon-line"} />
+          </button>
           <NotificationMenu accessToken={login.accessToken} isPlatform={normalizedRole === "platform"} orgId={login.orgId} />
           <ProfileMenu login={login} onLogout={logout} onOpenProfile={() => setActiveId("profile")} role={normalizedRole} workspace={propertyName} />
         </div>
@@ -924,49 +1051,7 @@ export function WorkspaceApp({ workspace, role, profile }: { workspace: string; 
 
       <section className="workspace appWorkspace">
         <aside className="sidebar appSidebar">
-          <div className="workspaceBadge">
-            <span>{propertyName}</span>
-            <strong>{roleLabel(role)}</strong>
-            <small>{login.userName}</small>
-          </div>
-          {normalizedRole === "platform" ? (
-            <div className="moduleGroup platformNavGroup">
-              <p>Control center</p>
-              <Link className={!profile ? "active navItem" : "navItem"} href="/1forge/platform">
-                Dashboard
-              </Link>
-              <Link className={profile && profile !== "analytics" ? "active navItem" : "navItem"} href="/1forge/platform">
-                Clients
-              </Link>
-              <Link className={profile === "analytics" ? "active navItem" : "navItem"} href="/1forge/platform/analytics">
-                Analytics
-              </Link>
-            </div>
-          ) : (
-            <div className="moduleGroup">
-              <p>Allowed modules</p>
-              {allowedModules.map((module) => (
-                <button className={module.id === activeModule.id ? "active navItem" : "navItem"} key={module.id} onClick={() => setActiveId(module.id)} type="button">
-                  {module.title}
-                </button>
-              ))}
-            </div>
-          )}
-          {normalizedRole !== "platform" && (login.availableRoles?.length ?? 0) > 1 ? (
-            <div className="moduleGroup roleSwitcher">
-              <p>Switch role</p>
-              {login.availableRoles
-                ?.filter((item) => item.workspace === workspace)
-                .map((item) => (
-                  <Link className={normalizeRole(item.role) === normalizedRole ? "active navItem" : "navItem"} href={item.destination} key={`${item.orgId}-${item.role}`}>
-                    {roleLabel(item.role)}
-                  </Link>
-                ))}
-            </div>
-          ) : null}
-          <button className="outlineButton fullButton" onClick={logout} type="button">
-            Logout
-          </button>
+          {renderWorkspaceNavigation()}
         </aside>
 
         <section className={normalizedRole === "platform" ? "content platformContent" : "content"}>
@@ -1252,14 +1337,21 @@ function WardenDashboard({ accessToken, orgId, setActiveId, userName, workspace 
   const [visitors, setVisitors] = useState<VisitorRecord[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [subscriptionInactive, setSubscriptionInactive] = useState(false);
   const headers = { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId };
 
   useEffect(() => {
     let active = true;
     fetch(`${apiBase}/warden/dashboard`, { headers })
-      .then((response) => response.json().catch(() => ({})))
-      .then((data) => {
+      .then(async (response) => ({ response, data: await response.json().catch(() => ({})) }))
+      .then(({ response, data }) => {
         if (!active) return;
+        if (response.status === 402 || data.code === "SUBSCRIPTION_INACTIVE") {
+          setSubscriptionInactive(true);
+          return;
+        }
+        if (!response.ok) throw new Error("Warden dashboard unavailable");
+        setSubscriptionInactive(false);
         setRooms((data.dashboard?.rooms ?? []).map(mapApiRoom));
         setComplaints(data.dashboard?.complaints ?? []);
         setPasses(data.dashboard?.gatePasses ?? []);
@@ -1299,6 +1391,14 @@ function WardenDashboard({ accessToken, orgId, setActiveId, userName, workspace 
     { label: "visitors waiting at the gate", count: waitingVisitors.length, action: "Review", target: "visitors" },
     { label: "documents pending review", count: pendingDocuments.length, action: "Review", target: "documents" },
   ];
+
+  if (subscriptionInactive) {
+    return (
+      <section className="panel">
+        <EmptyPanel title="Workspace subscription inactive" copy="This workspace is currently unavailable. Contact a platform administrator to restore access." />
+      </section>
+    );
+  }
 
   return (
     <div aria-busy={isLoading} className="wardenDashboard">
@@ -2906,8 +3006,10 @@ function NotificationMenu({ accessToken, orgId, isPlatform = false }: { accessTo
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLive, setIsLive] = useState(false);
+  const [subscriptionInactive, setSubscriptionInactive] = useState(false);
   const hasLoaded = useRef(false);
   const isLiveRef = useRef(false);
+  const subscriptionInactiveRef = useRef(false);
   const unread = notifications.filter((item) => item.status !== "read").length;
 
   const loadNotifications = useCallback(async () => {
@@ -2916,6 +3018,12 @@ function NotificationMenu({ accessToken, orgId, isPlatform = false }: { accessTo
       const response = await fetch(`${apiBase}${isPlatform ? "/platform/notifications" : "/notifications"}`, {
         headers: { Authorization: `Bearer ${accessToken}`, ...(isPlatform ? {} : { "x-org-id": orgId }) },
       });
+      if (response.status === 402) {
+        subscriptionInactiveRef.current = true;
+        setSubscriptionInactive(true);
+        setNotifications([]);
+        return;
+      }
       if (!response.ok) return;
       const data = await response.json().catch(() => ({}));
       setNotifications(data.notifications ?? []);
@@ -2932,15 +3040,21 @@ function NotificationMenu({ accessToken, orgId, isPlatform = false }: { accessTo
   }, [isLive]);
 
   useEffect(() => {
+    subscriptionInactiveRef.current = subscriptionInactive;
+  }, [subscriptionInactive]);
+
+  useEffect(() => {
     hasLoaded.current = false;
+    subscriptionInactiveRef.current = false;
+    setSubscriptionInactive(false);
     const initialFallback = window.setTimeout(() => {
-      if (!hasLoaded.current) void loadNotifications();
+      if (!hasLoaded.current && !subscriptionInactiveRef.current) void loadNotifications();
     }, 1_500);
     const poll = window.setInterval(() => {
-      if (!isLiveRef.current) void loadNotifications();
+      if (!isLiveRef.current && !subscriptionInactiveRef.current) void loadNotifications();
     }, 30_000);
     const refresh = () => {
-      if (document.visibilityState === "visible") void loadNotifications();
+      if (document.visibilityState === "visible" && !subscriptionInactiveRef.current) void loadNotifications();
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
@@ -2958,12 +3072,19 @@ function NotificationMenu({ accessToken, orgId, isPlatform = false }: { accessTo
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
     const connect = async () => {
+      if (subscriptionInactiveRef.current) return;
       controller = new AbortController();
       try {
         const response = await fetch(`${apiBase}${isPlatform ? "/platform/notifications/stream" : "/notifications/stream"}`, {
           headers: { Authorization: `Bearer ${accessToken}`, ...(isPlatform ? {} : { "x-org-id": orgId }) },
           signal: controller.signal,
         });
+        if (response.status === 402) {
+          subscriptionInactiveRef.current = true;
+          setSubscriptionInactive(true);
+          setNotifications([]);
+          return;
+        }
         if (!response.ok || !response.body) throw new Error("Notification stream unavailable");
         setIsLive(true);
         const reader = response.body.getReader();
@@ -2988,7 +3109,7 @@ function NotificationMenu({ accessToken, orgId, isPlatform = false }: { accessTo
       } catch (error) {
         if (!disposed && !(error instanceof DOMException && error.name === "AbortError")) setIsLive(false);
       } finally {
-        if (!disposed) {
+        if (!disposed && !subscriptionInactiveRef.current) {
           setIsLive(false);
           reconnectTimer = setTimeout(() => void connect(), 3000);
         }
@@ -3023,13 +3144,14 @@ function NotificationMenu({ accessToken, orgId, isPlatform = false }: { accessTo
   return (
     <div className={`notificationMenu ${open ? "isOpen" : ""}`}>
       <button aria-expanded={open} aria-label="Notifications" className="notificationIconButton" onClick={() => setOpen((current) => !current)} type="button">
+        <i aria-hidden="true" className="ri-notification-3-line" />
         {unread ? <span>{unread}</span> : null}
       </button>
       {open ? (
         <div className="notificationPopover">
           <div className="notificationPopoverHeader">
             <strong>Notifications</strong>
-            <small className={isLive ? "notificationLiveStatus isLive" : "notificationLiveStatus"}>{isLive ? "Live" : `${unread} unread`}</small>
+            <small className={isLive ? "notificationLiveStatus isLive" : "notificationLiveStatus"}>{isLive ? "Live" : subscriptionInactive ? "Unavailable" : `${unread} unread`}</small>
           </div>
           {isLoading ? (
             <DirectorySkeleton />
@@ -3041,6 +3163,8 @@ function NotificationMenu({ accessToken, orgId, isPlatform = false }: { accessTo
                 <small>{formatDateTime(item.created_at)}</small>
               </button>
             ))
+          ) : subscriptionInactive ? (
+            <EmptyPanel title="Notifications unavailable" copy="This workspace subscription is inactive. Contact an administrator to restore access." />
           ) : (
             <EmptyPanel title="All caught up" copy="New updates will appear here." />
           )}

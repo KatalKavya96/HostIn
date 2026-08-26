@@ -8,11 +8,14 @@ describe("admin-applied client theme", () => {
     document.documentElement.removeAttribute("style");
   });
 
+
   it("applies a client theme only to the active role app", () => {
     applyCustomColor("#123456");
 
     expect(document.documentElement).toHaveAttribute("data-theme", "custom");
     expect(document.documentElement.style.getPropertyValue("--accent")).toBe("#123456");
+    expect(document.documentElement.style.getPropertyValue("--accent-muted")).toMatch(/^#/);
+    expect(document.documentElement.style.getPropertyValue("--accent-ring")).toBe("rgba(18, 52, 86, 0.28)");
     expect(window.localStorage.getItem("hostin-color-theme")).toBeNull();
   });
 
@@ -22,5 +25,6 @@ describe("admin-applied client theme", () => {
 
     expect(document.documentElement).toHaveAttribute("data-theme", "hostin-green");
     expect(document.documentElement.style.getPropertyValue("--accent")).toBe("");
+    expect(document.documentElement.style.getPropertyValue("--accent-muted")).toBe("");
   });
 });

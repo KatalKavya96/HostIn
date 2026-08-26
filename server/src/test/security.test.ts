@@ -15,19 +15,21 @@ describe("API protection", () => {
     expect(response.headers["x-powered-by"]).toBeUndefined();
   });
 
-  it("allows the deployed frontend to complete credentialed CORS preflight", async () => {
-    const origin = "https://host-in-beta.vercel.app";
-    const response = await request(app)
-      .options("/api/auth/resolve-login")
-      .set("Origin", origin)
-      .set("Access-Control-Request-Method", "POST")
-      .set("Access-Control-Request-Headers", "content-type");
+  it.each(["https://host-in-beta.vercel.app", "https://hostin.1forge.in"])(
+    "allows %s to complete credentialed CORS preflight",
+    async (origin) => {
+      const response = await request(app)
+        .options("/api/auth/resolve-login")
+        .set("Origin", origin)
+        .set("Access-Control-Request-Method", "POST")
+        .set("Access-Control-Request-Headers", "content-type");
 
-    expect(response.status).toBe(204);
-    expect(response.headers["access-control-allow-origin"]).toBe(origin);
-    expect(response.headers["access-control-allow-credentials"]).toBe("true");
-    expect(response.headers["access-control-max-age"]).toBe("86400");
-  });
+      expect(response.status).toBe(204);
+      expect(response.headers["access-control-allow-origin"]).toBe(origin);
+      expect(response.headers["access-control-allow-credentials"]).toBe("true");
+      expect(response.headers["access-control-max-age"]).toBe("86400");
+    },
+  );
 
   it("rejects malformed unified login input before querying credentials", async () => {
     const response = await request(app).post("/api/auth/resolve-login").send({ email: "not-an-email", password: "short" });

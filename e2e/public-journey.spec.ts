@@ -4,12 +4,12 @@ test("landing, plans, and demo entry form one complete public journey", async ({
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Run your PG like a real business." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Try live demo" })).toHaveAttribute("href", "/login#demo-accounts");
-  await expect(page.getByRole("navigation", { name: "Public navigation" }).getByRole("link", { name: "Plans" })).toHaveAttribute("href", "/plans");
+  await expect(page.getByRole("navigation", { name: "Public navigation" }).getByRole("link", { name: "Pricing" })).toHaveAttribute("href", "/pricing");
   await expect(page.getByRole("heading", { name: "Custom pricing" })).toHaveCount(0);
 
   await page.goto("/plans");
-  await expect(page.getByRole("heading", { name: "A plan shaped around your property." })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Custom pricing" })).toHaveCount(3);
+  await expect(page.getByRole("heading", { name: "Choose the operating plan that fits your property." })).toBeVisible();
+  await expect(page.locator(".pricingCard")).toHaveCount(4);
   await expect(page.getByRole("link", { name: "Try every role" })).toHaveAttribute("href", "/login#demo-accounts");
 
   await page.goto("/login#demo-accounts");
@@ -40,7 +40,7 @@ test("client-facing pages do not expose theme preferences", async ({ page }) => 
 test("public aliases resolve and unknown routes show the branded recovery page", async ({ page }) => {
   await page.goto("/pricing");
   await expect(page).toHaveURL(/\/plans$/);
-  await expect(page.getByRole("heading", { name: "A plan shaped around your property." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Choose the operating plan that fits your property." })).toBeVisible();
 
   await page.goto("/a-page-that-does-not-exist");
   await expect(page.getByRole("heading", { name: "Oops. This room doesn't exist." })).toBeVisible();

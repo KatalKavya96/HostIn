@@ -18,6 +18,9 @@ function customVariables(hex: string) {
     "--accent-gradient-end": mix(hex, "#000000", 0.16),
     "--accent-shadow": `rgba(${rgb}, 0.22)`,
     "--accent-focus": `rgba(${rgb}, 0.16)`,
+    "--accent-ring": `rgba(${rgb}, 0.28)`,
+    "--accent-muted": mix(hex, "#ffffff", 0.96),
+    "--accent-on": "#ffffff",
     "--nav-active-start": mix(hex, "#ffffff", 0.92),
     "--nav-active-end": mix(hex, "#ffffff", 0.96),
   };
