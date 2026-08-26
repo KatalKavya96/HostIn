@@ -6,12 +6,12 @@ import LoginPage from "./login/page";
 import NotFound from "./not-found";
 
 describe("public product journey", () => {
-  it("keeps plans on a separate route and exposes the demo entry point", () => {
+  it("keeps pricing on a separate route and exposes the demo entry point", () => {
     render(<LandingPage />);
 
     expect(
-      within(screen.getByRole("navigation", { name: "Public navigation" })).getByRole("link", { name: "Plans" })
-    ).toHaveAttribute("href", "/plans");
+      within(screen.getByRole("navigation", { name: "Public navigation" })).getByRole("link", { name: "Pricing" })
+    ).toHaveAttribute("href", "/pricing");
     expect(screen.getByRole("link", { name: "Try live demo" })).toHaveAttribute("href", "/login#demo-accounts");
     expect(screen.queryByRole("heading", { name: "Custom pricing" })).not.toBeInTheDocument();
     expect(document.querySelector(".scrollProgress")).toBeInTheDocument();
@@ -33,11 +33,12 @@ describe("public product journey", () => {
     expect(within(livePreview as HTMLElement).getByRole("heading", { name: "Today’s work, prioritized." })).toBeVisible();
   });
 
-  it("renders the standalone plans page with paths back to demo and consultation", () => {
+  it("renders the standalone pricing page with paths back to demo and consultation", () => {
     render(<PlansPage />);
 
-    expect(screen.getByRole("heading", { name: "A plan shaped around your property." })).toBeVisible();
-    expect(screen.getAllByRole("heading", { name: "Custom pricing" })).toHaveLength(3);
+    expect(screen.getByRole("heading", { name: "Choose the operating plan that fits your property." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Rs 24,999/year" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "See what each Hostin plan includes." })).toBeVisible();
     expect(screen.getByRole("link", { name: "Try every role" })).toHaveAttribute("href", "/login#demo-accounts");
   });
 

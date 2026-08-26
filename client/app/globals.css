@@ -3060,10 +3060,12 @@ select:focus {
 .plansHero > * { animation: heroRise 760ms cubic-bezier(.2,.8,.2,1) both; }
 .plansHero h1 { color:#0f172a; font-size:clamp(52px,7vw,94px); letter-spacing:-.06em; line-height:.95; margin:18px auto; max-width:980px; }
 .plansHero > p:last-child { color:#64748b; font-size:19px; line-height:1.6; margin:0 auto; max-width:700px; }
-.plansGrid { display:grid; gap:18px; grid-template-columns:repeat(3,minmax(0,1fr)); padding:80px 6vw; }
-.plansGrid .pricingCard { min-height:380px; }
+.plansGrid { display:grid; gap:18px; grid-template-columns:repeat(4,minmax(0,1fr)); padding:80px 6vw 58px; }
+.plansGrid .pricingCard { min-height:470px; }
 .plansGrid .pricingCard h2 { font-size:30px; margin:0; }
 .plansGrid .pricingCard > a { margin-top:22px; }
+.hostinPlanIncludes{display:grid;gap:10px;list-style:none;margin:4px 0 0;padding:0}.hostinPlanIncludes li{color:#334155;font-size:13px;font-weight:850;line-height:1.45}
+.plansCompare{display:grid;gap:28px;margin:0 6vw 80px}.plansCompare>div:first-child{max-width:760px}.plansCompare h2{color:#0f172a;font-size:clamp(34px,4.6vw,62px);letter-spacing:-.045em;line-height:1.02;margin:10px 0 14px}.plansCompare>div:first-child>p:last-child{color:#64748b;font-size:17px;line-height:1.6;margin:0}.hostinCompareTableWrap{background:#fff;border:1px solid #e2e8f0;border-radius:22px;overflow-x:auto}.hostinCompareTable{border-collapse:collapse;min-width:900px;width:100%}.hostinCompareTable th,.hostinCompareTable td{border-bottom:1px solid #e2e8f0;padding:17px 16px;text-align:left}.hostinCompareTable thead th{background:#f8fafc;color:#0f172a;font-size:11px;font-weight:950;text-transform:uppercase}.hostinCompareTable tbody th{color:#1e293b;font-size:13px}.hostinCompareTable tr:last-child th,.hostinCompareTable tr:last-child td{border-bottom:0}.hostinPlanFeature{border-radius:999px;display:inline-flex;font-size:11px;font-weight:950;white-space:nowrap}.hostinPlanFeature.yes{color:#0f766e}.hostinPlanFeature.no{color:#94a3b8}.hostinPlanFeature.partial{background:#e6fffa;color:#0f766e;padding:7px 10px}
 .plansNote { align-items:center; background:#0f172a; color:#fff; display:flex; gap:30px; justify-content:space-between; margin:0 6vw 90px; padding:42px; border-radius:22px; }
 .plansNote h2 { font-size:clamp(28px,4vw,48px); margin:8px 0 0; }
 .plansNote .sectionEyebrow { color:#5eead4!important; }
@@ -3092,7 +3094,7 @@ select:focus {
 .demoAccountGrid em { color:var(--accent); font-size:9px; font-style:normal; font-weight:900; grid-column:3; grid-row:1; white-space:nowrap; }
 
 @media(max-width:1180px){
-  .plansGrid{grid-template-columns:1fr}.plansGrid .pricingCard{min-height:300px}
+  .plansGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.plansGrid .pricingCard{min-height:390px}
   .commonLoginPage>section{grid-template-columns:1fr}.commonLoginCard{max-width:620px;position:static;width:100%}
   .marketingPage .marketingNav{margin-bottom:52px;overflow:visible}
   .marketingPage .topnav{align-items:center;background:rgba(255,255,255,.97);border-bottom:1px solid #dbe7e6;border-top:1px solid #edf2f7;box-shadow:0 10px 25px rgba(15,23,42,.05);display:flex;gap:8px;justify-content:center;left:0;overflow-x:auto;padding:7px 16px;position:absolute;right:0;top:100%;z-index:19}
@@ -3101,7 +3103,7 @@ select:focus {
 }
 @media(max-width:720px){
   .navDemo{display:none}.heroFeatureLink{justify-content:center;min-height:36px}.scrollProgress{height:2px}
-  .plansHero{padding:82px 20px 64px}.plansGrid{padding:50px 20px}.plansNote{align-items:stretch;flex-direction:column;margin:0 20px 60px;padding:28px}.plansNote>div:last-child{align-items:stretch;flex-direction:column}
+  .plansHero{padding:82px 20px 64px}.plansGrid{grid-template-columns:1fr;padding:50px 20px}.plansCompare{margin:0 20px 58px}.hostinCompareTableWrap{border-radius:18px}.plansNote{align-items:stretch;flex-direction:column;margin:0 20px 60px;padding:28px}.plansNote>div:last-child{align-items:stretch;flex-direction:column}
   .commonLoginTop{align-items:stretch;flex-direction:column;gap:18px}.loginManagedThemeNote{text-align:center}.commonLoginCard{order:-1}.demoAccountGrid{grid-template-columns:1fr}.demoAccountsHeader{align-items:start;flex-direction:column}.demoAccountsHeader>span{text-align:left}.demoAccountGrid>button{grid-template-columns:42px 1fr auto}
 
   .marketingPage .marketingNav{margin-bottom:48px}
