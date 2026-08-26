@@ -10,7 +10,9 @@ export function ProductThemeBoundary() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!roleAppPath.test(pathname)) applyDefaultTheme();
+    if (!roleAppPath.test(pathname)) {
+      applyDefaultTheme();
+    }
   }, [pathname]);
 
   return null;

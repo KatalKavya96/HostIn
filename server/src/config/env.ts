@@ -17,7 +17,12 @@ if (!result.success) {
 }
 
 export const env = result.data;
-const firstPartyOrigins = ["http://localhost:3000", "https://host-in-beta.vercel.app"];
+const firstPartyOrigins = [
+  "http://localhost:3000",
+  "https://host-in-beta.vercel.app",
+  "https://hostin.1forge.in",
+  "https://www.hostin.1forge.in",
+];
 export const allowedOrigins = Array.from(new Set([
   ...firstPartyOrigins,
   ...env.CLIENT_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean),

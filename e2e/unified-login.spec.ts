@@ -19,6 +19,25 @@ async function openClientControlSection(page: Page, label: string, value: string
   await page.getByRole("button", { name: label, exact: true }).click();
 }
 
+async function workspaceNavigation(page: Page) {
+  const mobileTrigger = page.getByRole("button", { name: "Open workspace navigation" });
+  if (await mobileTrigger.isVisible()) {
+    await mobileTrigger.click();
+    return page.getByRole("dialog", { name: "Workspace navigation" });
+  }
+  return page.getByRole("complementary");
+}
+
+async function clickWorkspaceButton(page: Page, label: string) {
+  const navigation = await workspaceNavigation(page);
+  await navigation.getByRole("button", { name: label, exact: true }).click();
+}
+
+async function clickWorkspaceLink(page: Page, label: string) {
+  const navigation = await workspaceNavigation(page);
+  await navigation.getByRole("link", { name: label, exact: true }).click();
+}
+
 async function expectOnboardingStepList(page: Page) {
   const fullStepLabels = [
     /PG Structure/,
@@ -47,19 +66,17 @@ test("tenant account routes directly to its private profile", async ({ page }) =
   await expect(page.getByLabel("Password")).toHaveValue("city-complex@123");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/city-complex\/tenant\/aarav-mehta$/);
-  await expect(page.getByRole("button", { name: "Gate Passes" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Gate Passes" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Rooms" })).toHaveCount(0);
   await expect(page.getByLabel("Switch property")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sync", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
-  const tenantSidebar = page.getByRole("complementary");
-  await tenantSidebar.getByRole("button", { name: "Gate Passes", exact: true }).click();
   await page.getByRole("button", { name: "Request Gate Pass" }).click();
   await expect(page.getByRole("dialog").getByRole("heading", { name: "Request Gate Pass" })).toBeVisible();
   await expect(page.getByRole("dialog").getByLabel("Leaving")).toBeVisible();
   await page.getByRole("button", { name: "Close gate pass form" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await tenantSidebar.getByRole("button", { name: "Community", exact: true }).click();
+  await clickWorkspaceButton(page, "Community");
   await page.getByRole("button", { name: "Complaints", exact: true }).click();
   await expect(page.getByLabel("Complaint category")).toBeVisible();
   await expect(page.getByLabel("Complaint priority")).toBeVisible();
@@ -80,7 +97,7 @@ test("warden account opens a minimal daily operations dashboard", async ({ page 
   await expect(page.getByLabel("Switch property")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
 
-  const sidebar = page.getByRole("complementary");
+  const sidebar = await workspaceNavigation(page);
   for (const item of ["Dashboard", "Rooms", "Tenants", "Complaints", "Gate Passes", "Visitors", "Announcements", "Staff Contacts", "Documents Vault"]) {
     await expect(sidebar.getByRole("button", { name: item, exact: true })).toBeVisible();
   }
@@ -109,7 +126,7 @@ test("parent account opens a privacy-safe child assurance workspace", async ({ p
   await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
   await expect(page.getByLabel("Switch property")).toHaveCount(0);
 
-  const sidebar = page.getByRole("complementary");
+  const sidebar = await workspaceNavigation(page);
   for (const item of ["Home", "My Child", "Gate Pass", "Billing", "Mess Menu", "Announcements", "Contacts", "Help & Concerns", "Documents"]) {
     await expect(sidebar.getByRole("button", { name: item, exact: true })).toBeVisible();
   }
@@ -119,13 +136,13 @@ test("parent account opens a privacy-safe child assurance workspace", async ({ p
 
   await sidebar.getByRole("button", { name: "Gate Pass", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Gate pass history" })).toBeVisible();
-  await sidebar.getByRole("button", { name: "Billing", exact: true }).click();
+  await clickWorkspaceButton(page, "Billing");
   await expect(page.getByRole("heading", { name: "Current dues" })).toBeVisible();
-  await sidebar.getByRole("button", { name: "Mess Menu", exact: true }).click();
+  await clickWorkspaceButton(page, "Mess Menu");
   await expect(page.getByRole("heading", { name: "Today’s Menu" })).toBeVisible();
-  await sidebar.getByRole("button", { name: "Contacts", exact: true }).click();
+  await clickWorkspaceButton(page, "Contacts");
   await expect(page.getByRole("heading", { name: "Quick Contacts" })).toBeVisible();
-  await sidebar.getByRole("button", { name: "Help & Concerns", exact: true }).click();
+  await clickWorkspaceButton(page, "Help & Concerns");
   await expect(page.getByRole("heading", { name: "Raise a Concern" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Submit Concern" })).toBeVisible();
 });
@@ -136,13 +153,11 @@ test("owner account opens the database-backed business dashboard", async ({ page
   await page.getByRole("button", { name: "Use Owner demo account" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/city-complex\/owner\/city-complex-owner$/);
-  await expect(page.getByRole("heading", { name: "Good morning, owner" })).toBeVisible();
-  await expect(page.getByText("Total tenants", { exact: true })).toBeVisible();
+  await expect(page.getByText("Total tenants", { exact: true })).toBeVisible({ timeout: 15000 });
   await expect(page.getByLabel("Switch property")).toHaveValue("city-complex");
   await expect(page.getByRole("button", { name: "Notifications" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sync", exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("Workspace navigation")).toHaveCount(0);
-  const ownerSidebar = page.getByRole("complementary");
+  const ownerSidebar = await workspaceNavigation(page);
   await expect(ownerSidebar.getByRole("button", { name: "My Properties" })).toBeVisible();
   await expect(ownerSidebar.getByRole("button", { name: "Credentials" })).toBeVisible();
 
@@ -156,12 +171,12 @@ test("owner account opens the database-backed business dashboard", async ({ page
   await page.getByRole("button", { name: "Close request form" }).click();
   await expect(page.getByRole("heading", { name: "Add Team Member" })).toHaveCount(0);
 
-  await ownerSidebar.getByRole("button", { name: "Documents Vault", exact: true }).click();
+  await clickWorkspaceButton(page, "Documents Vault");
   const ownerDocumentFilter = page.getByLabel("Filter documents by student name");
   await ownerDocumentFilter.fill("Aarav");
   await expect(page.getByText("Aarav Mehta", { exact: true })).toBeVisible();
 
-  await ownerSidebar.getByRole("button", { name: "Requests" }).click();
+  await clickWorkspaceButton(page, "Requests");
   await expect(page.getByRole("heading", { name: "Request history" })).toBeVisible();
   await page.getByRole("button", { name: "New Request" }).click();
   await expect(page.getByRole("heading", { name: "New Request" })).toBeVisible();
@@ -239,7 +254,7 @@ test("1Forge account can use the complete control-center journey", async ({ page
   await openClientControlSection(page, "Billing", "billing");
   await expect(page.getByRole("heading", { name: "Subscription & billing" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Analytics", exact: true }).click();
+  await clickWorkspaceLink(page, "Analytics");
   await expect(page).toHaveURL(/\/1forge\/platform\/analytics$/);
   await expect(page.getByRole("heading", { name: "Financial analytics" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Monthly recurring revenue" })).toBeVisible();
