@@ -8,8 +8,17 @@ test("landing, plans, and demo entry form one complete public journey", async ({
   await expect(page.getByRole("heading", { name: "Custom pricing" })).toHaveCount(0);
 
   await page.goto("/plans");
-  await expect(page.getByRole("heading", { name: "Choose the operating plan that fits your property." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pricing that scales with your beds." })).toBeVisible();
   await expect(page.locator(".pricingCard")).toHaveCount(4);
+  await expect(page.getByRole("heading", { name: "Build a custom estimate, then compare it with the best package." })).toBeVisible();
+  await expect(page.getByLabel("Number of beds")).toHaveValue("60");
+  await expect(page.getByText("₹12,940")).toBeVisible();
+  await expect(page.getByText("GST at 18%")).toBeVisible();
+  await expect(page.getByText("₹15,269 / month")).toBeVisible();
+  await expect(page.locator(".recommendationCard").getByRole("heading", { name: "Plus" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Compare without the clutter." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pricing and core access" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Extensions and workflows" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Try every role" })).toHaveAttribute("href", "/login#demo-accounts");
 
   await page.goto("/login#demo-accounts");
@@ -40,7 +49,7 @@ test("client-facing pages do not expose theme preferences", async ({ page }) => 
 test("public aliases resolve and unknown routes show the branded recovery page", async ({ page }) => {
   await page.goto("/pricing");
   await expect(page).toHaveURL(/\/plans$/);
-  await expect(page.getByRole("heading", { name: "Choose the operating plan that fits your property." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pricing that scales with your beds." })).toBeVisible();
 
   await page.goto("/a-page-that-does-not-exist");
   await expect(page.getByRole("heading", { name: "Oops. This room doesn't exist." })).toBeVisible();

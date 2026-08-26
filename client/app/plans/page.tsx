@@ -1,86 +1,176 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
-const plans = [
+const extensions = [
   {
-    name: "Starter",
-    badge: "Small PGs",
-    price: "Rs 24,999/month",
-    description: "For single-property PGs that want rooms, residents, and dues organized properly.",
-    includes: ["Room and bed setup", "Tenant records", "Dues tracking", "Owner and warden access"],
-    features: {
-      "Property setup": true,
-      "Rooms and tenants": true,
-      "Dues and payments": true,
-      "Gate passes": false,
-      "Complaints and notices": false,
-      "Parent access": false,
-      "Multiple properties": false,
-      "Custom workflows": false,
-    },
+    id: "guard",
+    name: "Guard",
+    price: 500,
+    icon: "ri-shield-user-line",
+    accountNote: "Includes 2 guard accounts",
+    description: "Gate pass approvals, visitor entry, check-in and check-out movement controls.",
   },
   {
-    name: "Growth",
-    badge: "Most popular",
-    price: "Rs 39,999/month",
-    description: "For active hostels with wardens, guards, payments, requests, and daily operations.",
-    includes: ["Everything in Starter", "Gate pass and visitor flows", "Complaints and notices", "Guard and tenant access"],
-    features: {
-      "Property setup": true,
-      "Rooms and tenants": true,
-      "Dues and payments": true,
-      "Gate passes": true,
-      "Complaints and notices": true,
-      "Parent access": "Optional",
-      "Multiple properties": false,
-      "Custom workflows": "Limited",
-    },
+    id: "mess",
+    name: "Mess Manager",
+    price: 200,
+    icon: "ri-restaurant-2-line",
+    accountNote: "Includes 2 mess manager accounts",
+    description: "Mess menu publishing, meal updates, resident feedback, and weekly menu operations.",
   },
   {
-    name: "Portfolio",
-    badge: "Growing operators",
-    price: "Rs 59,999/month",
-    description: "For owners managing more than one PG, hostel, or co-living property.",
-    includes: ["Everything in Growth", "Multi-property overview", "Role-based staff access", "Monthly operating reports"],
-    features: {
-      "Property setup": true,
-      "Rooms and tenants": true,
-      "Dues and payments": true,
-      "Gate passes": true,
-      "Complaints and notices": true,
-      "Parent access": true,
-      "Multiple properties": true,
-      "Custom workflows": "Limited",
-    },
-  },
-  {
-    name: "Custom",
-    badge: "Flexible scope",
-    price: "Custom quote",
-    description: "For institutes, large operators, or teams that need deeper customization.",
-    includes: ["Custom modules", "Advanced workflows", "Special reports", "Dedicated onboarding plan"],
-    features: {
-      "Property setup": true,
-      "Rooms and tenants": true,
-      "Dues and payments": true,
-      "Gate passes": true,
-      "Complaints and notices": true,
-      "Parent access": "Optional",
-      "Multiple properties": true,
-      "Custom workflows": true,
-    },
+    id: "vault",
+    name: "Vault Management",
+    price: 300,
+    icon: "ri-folder-shield-2-line",
+    accountNote: "Document storage and verification tools",
+    description: "Document vault, student records, verification status, and controlled document access.",
   },
 ] as const;
 
-const comparisonRows = Object.keys(plans[0].features) as Array<keyof (typeof plans)[number]["features"]>;
+const packages = [
+  {
+    name: "Basic",
+    badge: "Starter choice",
+    range: "10-40 beds",
+    minBeds: 10,
+    maxBeds: 40,
+    rate: 179,
+    extensionMode: "₹1,000 bundle",
+    description: "For smaller PGs that want structured owner, warden, and tenant operations.",
+    includes: ["Owner, warden, and tenant roles", "Rooms and tenant records", "Dues visibility", "Optional extension bundle"],
+  },
+  {
+    name: "Plus",
+    badge: "Best value",
+    range: "40-100 beds",
+    minBeds: 40,
+    maxBeds: 100,
+    rate: 149,
+    extensionMode: "All included",
+    description: "For growing properties where gate, mess, and document operations happen daily.",
+    includes: ["Everything in Basic", "Guard extension included", "Mess extension included", "Vault extension included"],
+  },
+  {
+    name: "Premium",
+    badge: "Most scalable",
+    range: "100-500 beds",
+    minBeds: 100,
+    maxBeds: 500,
+    rate: 129,
+    extensionMode: "All included",
+    description: "For larger hostels that need full operating visibility across teams and residents.",
+    includes: ["Full role workspace", "All extensions included", "Operational reports", "Priority setup support"],
+  },
+  {
+    name: "Enterprise",
+    badge: "Lowest per-bed rate",
+    range: "500+ beds",
+    minBeds: 500,
+    maxBeds: Infinity,
+    rate: 89,
+    extensionMode: "All included",
+    description: "For large institutions and operators managing high-capacity properties.",
+    includes: ["Portfolio-ready operating model", "All extensions included", "Custom onboarding plan", "Commercial support"],
+  },
+] as const;
 
-function FeatureValue({ value }: { value: boolean | string }) {
-  if (value === true) return <span className="hostinPlanFeature yes">Included</span>;
-  if (value === false) return <span className="hostinPlanFeature no">Not included</span>;
+const pricingComparisonRows = [
+  ["Bed range", "Any size", "10-40", "40-100", "100-500", "500+"],
+  ["Base price", "₹199 / bed", "₹179 / bed", "₹149 / bed", "₹129 / bed", "₹89 / bed"],
+  ["Owner role", true, true, true, true, true],
+  ["Warden role", true, true, true, true, true],
+  ["Tenant role", true, true, true, true, true],
+  ["Best for", "Flexible builds", "Small PGs", "Growing hostels", "Large hostels", "Institutions"],
+] as const;
+
+const operationsComparisonRows = [
+  ["Guard role", "₹500 add-on", "Bundle add-on", true, true, true],
+  ["Mess manager role", "₹200 add-on", "Bundle add-on", true, true, true],
+  ["Vault management", "₹300 add-on", "Bundle add-on", true, true, true],
+  ["Gate pass workflow", "With Guard add-on", "With bundle", true, true, true],
+  ["Mess menu workflow", "With Mess add-on", "With bundle", true, true, true],
+  ["Document storage", "With Vault add-on", "With bundle", true, true, true],
+  ["Included guard accounts", "2 with add-on", "2 with bundle", "2 included", "2 included", "2 included"],
+  ["Included mess accounts", "2 with add-on", "2 with bundle", "2 included", "2 included", "2 included"],
+] as const;
+
+function money(value: number) {
+  return `₹${Math.round(value).toLocaleString("en-IN")}`;
+}
+
+function valueBadge(value: boolean | string) {
+  if (value === true) return <span className="hostinPlanFeature yes"><i aria-hidden="true" className="ri-check-line" />Included</span>;
+  if (value === false) return <span className="hostinPlanFeature no"><i aria-hidden="true" className="ri-close-line" />Not included</span>;
   return <span className="hostinPlanFeature partial">{value}</span>;
 }
 
+function packageTotal(plan: (typeof packages)[number], beds: number, wantsExtensions: boolean) {
+  const billableBeds = Math.max(beds, plan.minBeds);
+  const extensionCost = plan.name === "Basic" && wantsExtensions ? 1000 : 0;
+  return billableBeds * plan.rate + extensionCost;
+}
+
+function packageFit(plan: (typeof packages)[number], beds: number) {
+  if (beds < plan.minBeds) return "nearby";
+  if (beds <= plan.maxBeds) return "matched";
+  return "outside";
+}
+
 export default function PlansPage() {
+  const [beds, setBeds] = useState(60);
+  const [activePackage, setActivePackage] = useState(1);
+  const [selectedExtensions, setSelectedExtensions] = useState<Record<string, boolean>>({
+    guard: true,
+    mess: true,
+    vault: true,
+  });
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActivePackage((current) => (current + 1) % packages.length);
+    }, 3200);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const calculator = useMemo(() => {
+    const selected = extensions.filter((extension) => selectedExtensions[extension.id]);
+    const extensionTotal = selected.reduce((total, extension) => total + extension.price, 0);
+    const customTotal = beds * 199 + extensionTotal;
+    const wantsExtensions = selected.length > 0;
+    const options = packages
+      .map((plan) => ({
+        plan,
+        fit: packageFit(plan, beds),
+        total: packageTotal(plan, beds, wantsExtensions),
+      }))
+      .filter((option) => option.fit !== "outside")
+      .sort((a, b) => a.total - b.total);
+    const recommended = options[0] ?? {
+      plan: packages[packages.length - 1],
+      fit: "matched",
+      total: packageTotal(packages[packages.length - 1], beds, wantsExtensions),
+    };
+    const savings = customTotal - recommended.total;
+    const customGst = customTotal * 0.18;
+    const recommendedGst = recommended.total * 0.18;
+    return {
+      customGst,
+      customGrandTotal: customTotal + customGst,
+      customTotal,
+      extensionTotal,
+      recommended,
+      recommendedGrandTotal: recommended.total + recommendedGst,
+      recommendedGst,
+      savings,
+      selected,
+    };
+  }, [beds, selectedExtensions]);
+
   return (
     <main className="marketingPage plansPage">
       <header className="topbar marketingNav">
@@ -94,52 +184,186 @@ export default function PlansPage() {
         <div className="navActions">
           <Link className="navDemo" href="/login#demo-accounts">Try demo</Link>
           <Link className="navLogin" href="/login">Log in</Link>
-          <Link className="gradientButton" href="/#demo">Book free demo</Link>
+          <a className="gradientButton" href="#calculator">Calculate price</a>
         </div>
       </header>
 
       <section className="plansHero">
         <p className="sectionEyebrow">Hostin pricing</p>
-        <h1>Choose the operating plan that fits your property.</h1>
-        <p>Every plan includes guided setup by 1Forge, role-based access, and support to help your team move from registers and WhatsApp into one system.</p>
+        <h1>Pricing that scales with your beds.</h1>
+        <p>Start with owner, warden, and tenant access. Add guard, mess, and vault workflows when your property needs deeper daily operations.</p>
+        <div className="plansHeroActions">
+          <a className="gradientButton" href="#calculator">Calculate price</a>
+          <a className="outlineButton" href="#compare">Compare packages</a>
+        </div>
       </section>
 
-      <section className="plansGrid" aria-label="Hostin pricing plans">
-        {plans.map((plan, index) => (
-          <article className={`pricingCard ${index === 1 ? "popular" : ""}`} key={plan.name}>
+      <section className="pricingCarousel" aria-label="Hostin pricing plans">
+        <div className="plansGrid" style={{ "--active-package": activePackage } as CSSProperties & { "--active-package": number }}>
+        {packages.map((plan, index) => (
+          <article className={`pricingCard ${index === activePackage ? "isActive" : ""} ${index === 1 ? "popular" : ""}`} key={plan.name}>
             <span>{plan.badge}</span>
-            <small>{plan.name}</small>
-            <h2>{plan.price}</h2>
+            <small>{plan.range}</small>
+            <h2>{plan.name}</h2>
+            <strong>{money(plan.rate)} / bed / month</strong>
             <p>{plan.description}</p>
+            <div className="packageExtensionMode">
+              <i aria-hidden="true" className={index === 0 ? "ri-add-circle-line" : "ri-checkbox-circle-line"} />
+              {plan.extensionMode}
+            </div>
             <ul className="hostinPlanIncludes">
-              {plan.includes.map((item) => <li key={item}>✓ {item}</li>)}
+              {plan.includes.map((item) => <li key={item}><i aria-hidden="true" className="ri-check-line" />{item}</li>)}
             </ul>
-            <Link className={index === 1 ? "gradientButton" : "outlineButton"} href="/#demo">Book free demo</Link>
+            <a className={index === 1 ? "gradientButton" : "outlineButton"} href="#calculator">Estimate this plan</a>
           </article>
         ))}
+        </div>
+        <div className="pricingCarouselDots" aria-label="Pricing carousel controls">
+          {packages.map((plan, index) => (
+            <button
+              aria-label={`Show ${plan.name} plan`}
+              className={index === activePackage ? "active" : ""}
+              key={plan.name}
+              onClick={() => setActivePackage(index)}
+              type="button"
+            />
+          ))}
+        </div>
       </section>
 
-      <section className="plansCompare" aria-labelledby="hostin-plan-comparison">
+      <section className="extensionSection" aria-labelledby="hostin-extensions">
+        <div className="splitHeading">
+          <div>
+            <p className="sectionEyebrow">Operational extensions</p>
+            <h2 id="hostin-extensions">Buy only the workflows your property needs.</h2>
+          </div>
+          <p>Extensions unlock the operational roles and workflows outside the standard owner, warden, and tenant workspace.</p>
+        </div>
+        <div className="extensionCards">
+          {extensions.map((extension) => (
+            <article key={extension.id}>
+              <i aria-hidden="true" className={extension.icon} />
+              <span>{extension.name}</span>
+              <strong>{money(extension.price)} / month</strong>
+              <p>{extension.description}</p>
+              <small>{extension.accountNote}</small>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="priceCalculator" id="calculator" aria-labelledby="price-calculator-title">
+        <div className="calculatorCopy">
+          <p className="sectionEyebrow">Custom price calculator</p>
+          <h2 id="price-calculator-title">Build a custom estimate, then compare it with the best package.</h2>
+          <p>The standard builder starts at ₹199 per bed with owner, warden, and tenant access. Add extensions only when you need those workflows.</p>
+          <div className="standardPlanBox">
+            <span>Standard builder includes</span>
+            <p><i aria-hidden="true" className="ri-user-star-line" />Owner</p>
+            <p><i aria-hidden="true" className="ri-user-settings-line" />Warden</p>
+            <p><i aria-hidden="true" className="ri-home-heart-line" />Tenant</p>
+          </div>
+        </div>
+
+        <div className="calculatorPanel">
+          <label className="bedInput">
+            <span>Number of beds</span>
+            <input
+              aria-label="Number of beds"
+              min={1}
+              onChange={(event) => setBeds(Math.max(1, Number(event.target.value) || 1))}
+              type="number"
+              value={beds}
+            />
+          </label>
+
+          <div className="extensionChecklist" aria-label="Select extensions">
+            {extensions.map((extension) => (
+              <label key={extension.id}>
+                <input
+                  checked={selectedExtensions[extension.id]}
+                  onChange={(event) => setSelectedExtensions((current) => ({ ...current, [extension.id]: event.target.checked }))}
+                  type="checkbox"
+                />
+                <span>
+                  <b>{extension.name}</b>
+                  <small>{money(extension.price)} / month</small>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <div className="estimateBreakdown" aria-live="polite">
+            <div><span>Base standard price</span><strong>{money(beds * 199)}</strong></div>
+            <div><span>Selected extensions</span><strong>{money(calculator.extensionTotal)}</strong></div>
+            <div><span>Subtotal before GST</span><strong>{money(calculator.customTotal)}</strong></div>
+            <div><span>GST at 18%</span><strong>{money(calculator.customGst)}</strong></div>
+            <div className="payableRow"><span>Custom payable quote</span><strong>{money(calculator.customGrandTotal)} / month</strong></div>
+          </div>
+
+          <div className="recommendationCard">
+            <span>Recommended package</span>
+            <h3>{calculator.recommended.plan.name}</h3>
+            <p>
+              {calculator.recommended.fit === "nearby"
+                ? `Closest package starts at ${calculator.recommended.plan.minBeds} beds.`
+                : `${calculator.recommended.plan.range} at ${money(calculator.recommended.plan.rate)} per bed.`}
+            </p>
+            <strong>{money(calculator.recommendedGrandTotal)} / month</strong>
+            <div className="quoteStrip">
+              <b>Quote</b>
+              <small>{money(calculator.recommended.total)} subtotal + {money(calculator.recommendedGst)} GST</small>
+            </div>
+            {calculator.savings > 0 ? (
+              <small>{calculator.recommended.plan.name} saves {money(calculator.savings)} per month and {calculator.recommended.plan.name === "Basic" ? "can bundle all extensions." : "includes all extensions."}</small>
+            ) : (
+              <small>Your custom builder estimate is already optimized for this setup.</small>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="plansCompare" id="compare" aria-labelledby="hostin-plan-comparison">
         <div>
           <p className="sectionEyebrow">Compare plans</p>
-          <h2 id="hostin-plan-comparison">See what each Hostin plan includes.</h2>
-          <p>Use this to pick the closest fit. Optional and custom items are finalized after we understand your property setup.</p>
+          <h2 id="hostin-plan-comparison">Compare without the clutter.</h2>
+          <p>Pricing and access sit in one table. Operational workflows and account limits sit in the next one.</p>
         </div>
         <div className="hostinCompareTableWrap">
+          <h3>Pricing and core access</h3>
           <table className="hostinCompareTable">
             <thead>
               <tr>
                 <th scope="col">Feature</th>
-                {plans.map((plan) => <th scope="col" key={plan.name}>{plan.name}</th>)}
+                <th scope="col">Custom Builder</th>
+                {packages.map((plan) => <th scope="col" key={plan.name}>{plan.name}</th>)}
               </tr>
             </thead>
             <tbody>
-              {comparisonRows.map((row) => (
-                <tr key={row}>
-                  <th scope="row">{row}</th>
-                  {plans.map((plan) => (
-                    <td key={`${plan.name}-${row}`}><FeatureValue value={plan.features[row]} /></td>
-                  ))}
+              {pricingComparisonRows.map((row) => (
+                <tr key={row[0]}>
+                  <th scope="row">{row[0]}</th>
+                  {row.slice(1).map((value, index) => <td key={`${row[0]}-${index}`}>{valueBadge(value)}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="hostinCompareTableWrap">
+          <h3>Extensions and workflows</h3>
+          <table className="hostinCompareTable">
+            <thead>
+              <tr>
+                <th scope="col">Feature</th>
+                <th scope="col">Custom Builder</th>
+                {packages.map((plan) => <th scope="col" key={plan.name}>{plan.name}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {operationsComparisonRows.map((row) => (
+                <tr key={row[0]}>
+                  <th scope="row">{row[0]}</th>
+                  {row.slice(1).map((value, index) => <td key={`${row[0]}-${index}`}>{valueBadge(value)}</td>)}
                 </tr>
               ))}
             </tbody>

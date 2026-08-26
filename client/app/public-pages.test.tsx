@@ -36,9 +36,16 @@ describe("public product journey", () => {
   it("renders the standalone pricing page with paths back to demo and consultation", () => {
     render(<PlansPage />);
 
-    expect(screen.getByRole("heading", { name: "Choose the operating plan that fits your property." })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Rs 24,999/month" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "See what each Hostin plan includes." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Pricing that scales with your beds." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Basic" })).toBeVisible();
+    expect(screen.getByText("₹179 / bed / month")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Build a custom estimate, then compare it with the best package." })).toBeVisible();
+    expect(screen.getByText("₹12,940")).toBeVisible();
+    expect(screen.getByText("GST at 18%")).toBeVisible();
+    expect(screen.getByText("₹15,269 / month")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Compare without the clutter." })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Pricing and core access" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Extensions and workflows" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Try every role" })).toHaveAttribute("href", "/login#demo-accounts");
   });
 
