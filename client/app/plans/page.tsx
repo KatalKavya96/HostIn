@@ -5,7 +5,7 @@ const plans = [
   {
     name: "Starter",
     badge: "Small PGs",
-    price: "Rs 24,999/year",
+    price: "Rs 24,999/month",
     description: "For single-property PGs that want rooms, residents, and dues organized properly.",
     includes: ["Room and bed setup", "Tenant records", "Dues tracking", "Owner and warden access"],
     features: {
@@ -22,7 +22,7 @@ const plans = [
   {
     name: "Growth",
     badge: "Most popular",
-    price: "Rs 39,999/year",
+    price: "Rs 39,999/month",
     description: "For active hostels with wardens, guards, payments, requests, and daily operations.",
     includes: ["Everything in Starter", "Gate pass and visitor flows", "Complaints and notices", "Guard and tenant access"],
     features: {
@@ -39,7 +39,7 @@ const plans = [
   {
     name: "Portfolio",
     badge: "Growing operators",
-    price: "Rs 59,999/year",
+    price: "Rs 59,999/month",
     description: "For owners managing more than one PG, hostel, or co-living property.",
     includes: ["Everything in Growth", "Multi-property overview", "Role-based staff access", "Monthly operating reports"],
     features: {
