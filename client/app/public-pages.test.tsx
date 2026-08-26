@@ -37,7 +37,7 @@ describe("public product journey", () => {
     render(<PlansPage />);
 
     expect(screen.getByRole("heading", { name: "Choose the operating plan that fits your property." })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Rs 24,999/year" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Rs 24,999/month" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "See what each Hostin plan includes." })).toBeVisible();
     expect(screen.getByRole("link", { name: "Try every role" })).toHaveAttribute("href", "/login#demo-accounts");
   });
