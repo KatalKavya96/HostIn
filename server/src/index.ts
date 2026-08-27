@@ -87,6 +87,7 @@ import accountOrgRoutes from "./routes/platform/organizations/accounts";
 import controlOrgRoutes from "./routes/platform/organizations/control";
 import platformOnboardingRoutes from "./routes/platform/onboarding";
 import platformNotificationRoutes from "./routes/platform/notifications";
+import platformRequestRoutes from "./routes/platform/requests";
 import wardenDashboardRoutes from "./routes/warden/dashboard";
 
 
@@ -206,6 +207,7 @@ app.use("/api/platform/organizations", accountOrgRoutes);
 app.use("/api/platform/organizations", controlOrgRoutes);
 app.use("/api/platform/onboarding", platformOnboardingRoutes);
 app.use("/api/platform/notifications", platformNotificationRoutes);
+app.use("/api/platform/requests", platformRequestRoutes);
 
 
 

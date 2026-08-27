@@ -286,6 +286,14 @@ enum OwnerRequestStatus {
   canceled
 }
 
+enum OwnerRequestEventType {
+  status_change
+  message
+  payment
+  fulfillment
+  internal_note
+}
+
 // ─────────────────────────────────────────────
 // PLATFORM (Super Admin — separate from org users)
 // ─────────────────────────────────────────────
@@ -302,6 +310,7 @@ model PlatformUser {
   updated_at    DateTime  @updatedAt @db.Timestamp(6)
 
   platform_audit_logs PlatformAuditLog[]
+  owner_request_events OwnerRequestEvent[] @relation("OwnerRequestEventPlatformUser")
 
   @@map("platform_users")
 }
@@ -432,6 +441,7 @@ model Organization {
   role_feature_permissions RoleFeaturePermission[]
   access_overrides         AccessOverride[]
   owner_requests           OwnerRequest[]
+  owner_request_events     OwnerRequestEvent[]
 
   @@map("organizations")
 }
@@ -509,6 +519,7 @@ model User {
   person                    Person?                 @relation(fields: [person_id], references: [id], onDelete: SetNull)
   access_overrides          AccessOverride[]
   owner_requests            OwnerRequest[]          @relation("OwnerRequestRequestedBy")
+  owner_request_events      OwnerRequestEvent[]     @relation("OwnerRequestEventUser")
 
   @@map("users")
 }
@@ -657,10 +668,35 @@ model OwnerRequest {
 
   organization      Organization @relation(fields: [org_id], references: [id], onDelete: Cascade)
   requested_by_user User         @relation("OwnerRequestRequestedBy", fields: [requested_by], references: [id])
+  events            OwnerRequestEvent[]
 
   @@index([org_id, type, status])
   @@index([requested_by, created_at])
   @@map("owner_requests")
+}
+
+model OwnerRequestEvent {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  request_id             String                 @db.Uuid
+  org_id                 String                 @db.Uuid
+  actor_user_id          String?                @db.Uuid
+  actor_platform_user_id String?                @db.Uuid
+  actor_label            String                 @db.VarChar(255)
+  event_type             OwnerRequestEventType
+  from_status            OwnerRequestStatus?
+  to_status              OwnerRequestStatus?
+  message                String?                @db.Text
+  metadata               Json?                  @db.JsonB
+  created_at             DateTime               @default(now()) @db.Timestamp(6)
+
+  request             OwnerRequest  @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  organization        Organization  @relation(fields: [org_id], references: [id], onDelete: Cascade)
+  actor_user          User?         @relation("OwnerRequestEventUser", fields: [actor_user_id], references: [id])
+  actor_platform_user PlatformUser? @relation("OwnerRequestEventPlatformUser", fields: [actor_platform_user_id], references: [id])
+
+  @@index([request_id, created_at])
+  @@index([org_id, created_at])
+  @@map("owner_request_events")
 }
 
 /// Digital onboarding — warden sends invite link, tenant fills in own details.

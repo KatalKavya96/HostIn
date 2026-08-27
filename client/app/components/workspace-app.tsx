@@ -207,6 +207,50 @@ type PlatformOrganization = {
   onboarding?: { current_step: number; status: string } | null;
 };
 type PlatformPlan = { id: string; name: string; price_monthly: string | number; max_tenants: number };
+type RequestEvent = {
+  id: string;
+  actorLabel: string;
+  actor_label?: string;
+  event_type?: string;
+  type?: string;
+  fromStatus?: string | null;
+  from_status?: string | null;
+  toStatus?: string | null;
+  to_status?: string | null;
+  message?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt?: string;
+  created_at?: string;
+};
+type OwnerRequestRecord = {
+  id: string;
+  type: string;
+  status: string;
+  title: string;
+  personName?: string | null;
+  role?: string | null;
+  property: string;
+  requestedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  reason?: string | null;
+  requiredAccess?: string | null;
+  details?: Record<string, unknown> | null;
+  events?: RequestEvent[];
+};
+type PlatformOwnerRequest = Omit<OwnerRequestRecord, "property" | "requestedBy" | "createdAt" | "updatedAt"> & {
+  organization: { id: string; name: string; slug: string };
+  requested_by_user: { full_name: string; email: string };
+  property_name?: string | null;
+  required_access?: string | null;
+  created_at: string;
+  updated_at: string;
+  events: RequestEvent[];
+};
+type PurchaseOptions = {
+  organization: { id: string; planId: string; planName: string; totalCapacity: number; activeTenants: number; activeFeatures: string[] };
+  plans: PlatformPlan[];
+};
 type PlatformControlData = {
   onboarding?: { current_step: number; status: string } | null;
   people: {
@@ -313,20 +357,7 @@ type OwnerDashboardData = {
     status: string;
   }[];
   documents: { id: string; tenantName: string; type: string; fileName: string; status: string; createdAt: string }[];
-  requests: {
-    id: string;
-    type: string;
-    status: string;
-    title: string;
-    personName?: string | null;
-    role?: string | null;
-    property: string;
-    requestedBy: string;
-    createdAt: string;
-    updatedAt: string;
-    reason?: string | null;
-    requiredAccess?: string | null;
-  }[];
+  requests: OwnerRequestRecord[];
   billing: {
     orgId: string;
     property: string;
@@ -345,6 +376,16 @@ type OwnerDashboardData = {
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001/api";
 const ownerDashboardIds: SectionId[] = ["overview", "ownerProperties", "ownerPeople", "ownerCredentials", "ownerRequests", "documents", "ownerBilling", "ownerReports", "ownerSettings"];
+const gstRate = 0.18;
+const addonCatalog = [
+  { id: "guard", label: "Guard", price: 500, features: ["role_guard", "gate_pass", "visitor_log"], icon: "ri-shield-user-line", copy: "Security desk, visitor control, and gate pass workflows." },
+  { id: "mess_manager", label: "Mess Manager", price: 200, features: ["role_staff", "mess_menu"], icon: "ri-restaurant-2-line", copy: "Meal menus, feedback, and mess operating access." },
+  { id: "vault_management", label: "Vault Management", price: 300, features: ["documents"], icon: "ri-folder-shield-2-line", copy: "Tenant document storage and verification workspace." },
+] as const;
+const isAddonActive = (activeFeatures: string[], addon: (typeof addonCatalog)[number]) => addon.features.some((feature) => activeFeatures.includes(feature));
+const eventActor = (event: RequestEvent) => event.actorLabel ?? event.actor_label ?? "System";
+const eventKind = (event: RequestEvent) => event.type ?? event.event_type ?? "message";
+const eventDate = (event: RequestEvent) => event.createdAt ?? event.created_at ?? new Date().toISOString();
 
 const modules: Module[] = [
   {
@@ -1600,6 +1641,14 @@ function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { acce
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [requestTitle, setRequestTitle] = useState("Submit request to 1Forge");
   const [documentQuery, setDocumentQuery] = useState("");
+  const [billingMode, setBillingMode] = useState<"overview" | "shop" | "checkout">("overview");
+  const [purchaseOptions, setPurchaseOptions] = useState<PurchaseOptions | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [targetCapacity, setTargetCapacity] = useState(0);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [ticketMessage, setTicketMessage] = useState("");
   const [draft, setDraft] = useState({
     type: view === "ownerBilling" ? "plan_upgrade" : view === "ownerProperties" ? "new_property" : "credential_creation",
     title: "",
@@ -1628,10 +1677,28 @@ function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { acce
     }
   }
 
+  async function loadPurchaseOptions() {
+    try {
+      const response = await fetch(`${apiBase}/owner/requests/purchase-options`, { headers });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) setPurchaseOptions(data);
+    } catch {
+      setPurchaseOptions(null);
+    }
+  }
+
   useEffect(() => {
     loadOwnerDashboard();
+    loadPurchaseOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, orgId]);
+
+  useEffect(() => {
+    const currentBill = dashboard?.billing[0];
+    if (!purchaseOptions || !currentBill) return;
+    setSelectedPlanId((current) => current || purchaseOptions.organization.planId || purchaseOptions.plans[0]?.id || "");
+    setTargetCapacity((current) => current || currentBill.totalCapacity || purchaseOptions.organization.totalCapacity || 0);
+  }, [dashboard, purchaseOptions]);
 
   useEffect(() => {
     if (!isRequestOpen) return;
@@ -1677,6 +1744,59 @@ function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { acce
       await loadOwnerDashboard();
     } else {
       setMessage(data.error ?? "Unable to submit request.");
+    }
+  }
+
+  async function completePurchase() {
+    if (!purchaseOptions || !dashboard?.billing[0]) return;
+    const currentBill = dashboard.billing[0];
+    const selectedPlan = purchaseOptions.plans.find((plan) => plan.id === selectedPlanId);
+    const addonFeatureKeys = addonCatalog.filter((addon) => selectedAddons.includes(addon.id)).flatMap((addon) => addon.features);
+    const extraBeds = Math.max(0, targetCapacity - currentBill.totalCapacity);
+    const planAmount = selectedPlan ? Number(selectedPlan.price_monthly) : currentBill.baseMonthly;
+    const addonAmount = addonCatalog.filter((addon) => selectedAddons.includes(addon.id)).reduce((sum, addon) => sum + addon.price, 0);
+    const subtotal = planAmount + addonAmount + extraBeds * 49;
+    const total = Math.round(subtotal * (1 + gstRate));
+    setIsPurchasing(true);
+    const response = await fetch(`${apiBase}/owner/requests/purchase`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        planId: selectedPlanId || undefined,
+        targetCapacity,
+        featureKeys: addonFeatureKeys,
+        amount: total,
+        billingCycle: "monthly",
+        paymentGateway: "HostIn Checkout",
+        gatewayOrderId: `HOSTIN-${Date.now()}`,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setIsPurchasing(false);
+    if (response.ok) {
+      setMessage("Payment successful. Subscription changes are active.");
+      setSelectedAddons([]);
+      setBillingMode("overview");
+      await Promise.all([loadOwnerDashboard(), loadPurchaseOptions()]);
+    } else {
+      setMessage(data.error ?? "Unable to complete checkout.");
+    }
+  }
+
+  async function sendOwnerTicketMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedRequestId || !ticketMessage.trim()) return;
+    const response = await fetch(`${apiBase}/owner/requests/${selectedRequestId}/messages`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ message: ticketMessage }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) {
+      setTicketMessage("");
+      await loadOwnerDashboard();
+    } else {
+      setMessage(data.error ?? "Unable to send message.");
     }
   }
 
@@ -1950,34 +2070,93 @@ function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { acce
   }
 
   if (view === "ownerRequests") {
+    const selectedRequest = dashboard.requests.find((request) => request.id === selectedRequestId) ?? dashboard.requests[0];
+    const requestStats = [
+      { label: "Open", value: dashboard.requests.filter((request) => ["submitted", "need_more_info"].includes(request.status)).length, icon: "ri-chat-1-line" },
+      { label: "In Progress", value: dashboard.requests.filter((request) => ["under_review", "approved"].includes(request.status)).length, icon: "ri-hourglass-2-line" },
+      { label: "Resolved", value: dashboard.requests.filter((request) => ["fulfilled", "activated"].includes(request.status)).length, icon: "ri-checkbox-circle-line" },
+      { label: "Closed / Refused", value: dashboard.requests.filter((request) => ["rejected", "canceled"].includes(request.status)).length, icon: "ri-close-circle-line" },
+    ];
     return withRequestModal(
       <div className="ownerPageGrid">
         <section className="ownerSectionHeader panel">
           <div>
-            <h3>Requests</h3>
-            <p>Track every credential, staffing, plan, property, feature, and support request submitted to 1Forge.</p>
+            <h3>Support & Tickets</h3>
+            <p>Chat with 1Forge, track purchases, and follow every workspace request from one clean desk.</p>
           </div>
-          <button className="gradientButton" onClick={() => openRequest("New Request", { type: "credential_creation", title: "" })} type="button">
-            New Request
-          </button>
+          <div className="billingHeaderActions">
+            <button className="outlineButton" onClick={() => openRequest("Open Support Chat", { type: "support", title: "Support request" })} type="button">
+              <i className="ri-chat-smile-2-line" aria-hidden="true" /> Open Chat
+            </button>
+            <button className="gradientButton" onClick={() => openRequest("New Ticket", { type: "support", title: "" })} type="button">
+              <i className="ri-add-circle-line" aria-hidden="true" /> New Ticket
+            </button>
+          </div>
         </section>
-        <section className="panel">
-          <PanelTitle title="Request history" meta={`${dashboard.requests.length} requests`} />
-          <div className="ownerRequestList">
-            {dashboard.requests.map((request) => (
-              <article key={request.id}>
-                <span className={`statusPill ${request.status}`}>{labelFromKey(request.status)}</span>
-                <div>
-                  <b>{request.title}</b>
-                  <small>
-                    {labelFromKey(request.type)} · {request.property}
-                  </small>
-                  <p>{request.reason || request.requiredAccess || "Awaiting 1Forge review."}</p>
-                </div>
-                <time>{new Date(request.createdAt).toLocaleDateString("en-IN")}</time>
-              </article>
-            ))}
+        <section className="billingKpiGrid">
+          {requestStats.map((stat) => (
+            <article className="panel billingKpi" key={stat.label}>
+              <span>
+                <i className={stat.icon} aria-hidden="true" />
+              </span>
+              <div>
+                <small>{stat.label}</small>
+                <strong>{stat.value}</strong>
+              </div>
+            </article>
+          ))}
+        </section>
+        <section className="ticketCenterGrid">
+          <div className="panel">
+            <PanelTitle title="All tickets" meta={`${dashboard.requests.length} total`} />
+            <div className="ownerRequestList ticketList">
+              {dashboard.requests.map((request) => (
+                <button className={selectedRequest?.id === request.id ? "active" : ""} key={request.id} onClick={() => setSelectedRequestId(request.id)} type="button">
+                  <span className={`statusPill ${request.status}`}>{labelFromKey(request.status)}</span>
+                  <div>
+                    <b>{request.title}</b>
+                    <small>
+                      {labelFromKey(request.type)} · {request.property}
+                    </small>
+                    <p>{request.reason || request.requiredAccess || "Awaiting 1Forge review."}</p>
+                  </div>
+                  <time>{new Date(request.updatedAt || request.createdAt).toLocaleDateString("en-IN")}</time>
+                </button>
+              ))}
+              {!dashboard.requests.length ? <EmptyPanel title="No tickets yet" copy="Open a support request when you need 1Forge help." /> : null}
+            </div>
           </div>
+          <aside className="panel ticketChatPanel">
+            <PanelTitle title={selectedRequest ? selectedRequest.title : "Chat with HostIn Support"} meta={selectedRequest ? labelFromKey(selectedRequest.status) : "Online"} />
+            {selectedRequest ? (
+              <>
+                <div className="ticketMetaGrid">
+                  <span>{labelFromKey(selectedRequest.type)}</span>
+                  <span>{selectedRequest.property}</span>
+                  <span>{new Date(selectedRequest.createdAt).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="ticketTimeline">
+                  {(selectedRequest.events ?? []).map((event) => (
+                    <article className={eventActor(event).toLowerCase().includes("owner") ? "owner" : ""} key={event.id}>
+                      <small>
+                        {eventActor(event)} · {labelFromKey(eventKind(event))} · {new Date(eventDate(event)).toLocaleString("en-IN")}
+                      </small>
+                      <p>{event.message || "Status updated."}</p>
+                    </article>
+                  ))}
+                  {!selectedRequest.events?.length ? <EmptyPanel title="No messages yet" copy="Send a note to start the conversation." /> : null}
+                </div>
+                <form className="ticketMessageForm" onSubmit={sendOwnerTicketMessage}>
+                  <input aria-label="Message 1Forge support" onChange={(event) => setTicketMessage(event.target.value)} placeholder="Type your message..." value={ticketMessage} />
+                  <button className="gradientButton" type="submit">
+                    <i className="ri-send-plane-2-line" aria-hidden="true" /> Send
+                  </button>
+                </form>
+              </>
+            ) : (
+              <EmptyPanel title="Select a ticket" copy="Conversation and status logs will appear here." />
+            )}
+          </aside>
         </section>
       </div>
     );
@@ -2021,55 +2200,173 @@ function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { acce
   }
 
   if (view === "ownerBilling") {
+    const bill = dashboard.billing[0];
+    const activeFeatures = purchaseOptions?.organization.activeFeatures ?? bill?.activeFeatures ?? [];
+    const sortedPlans = [...(purchaseOptions?.plans ?? [])].sort((a, b) => Number(b.price_monthly) - Number(a.price_monthly));
+    const selectedPlan = sortedPlans.find((plan) => plan.id === selectedPlanId) ?? sortedPlans.find((plan) => plan.name === bill?.planName) ?? sortedPlans[0];
+    const selectedAddonItems = addonCatalog.filter((addon) => selectedAddons.includes(addon.id));
+    const extraBeds = Math.max(0, targetCapacity - (bill?.totalCapacity ?? 0));
+    const planAmount = selectedPlan ? Number(selectedPlan.price_monthly) : bill?.baseMonthly ?? 0;
+    const addonAmount = selectedAddonItems.reduce((sum, addon) => sum + addon.price, 0);
+    const bedAmount = extraBeds * 49;
+    const subtotal = planAmount + addonAmount + bedAmount;
+    const gst = Math.round(subtotal * gstRate);
+    const total = subtotal + gst;
     return withRequestModal(
       <div className="ownerPageGrid">
         <section className="ownerSectionHeader panel">
           <div>
             <h3>Billing & Plans</h3>
-            <p>Plan limits and enabled features are controlled centrally by 1Forge.</p>
+            <p>Manage your subscription, extensions, bed capacity, and billing support from one guided workspace.</p>
           </div>
-          <button className="gradientButton" onClick={() => openRequest("Request Plan Change", { type: "plan_upgrade", title: "Upgrade or change plan" })} type="button">
-            Request Plan Change
-          </button>
+          <div className="billingHeaderActions">
+            <button className="outlineButton" onClick={() => setBillingMode("shop")} type="button">
+              <i className="ri-shopping-bag-3-line" aria-hidden="true" /> Manage Plan
+            </button>
+            <button className="gradientButton" onClick={() => openRequest("Open Billing Support", { type: "support", title: "Billing support" })} type="button">
+              <i className="ri-customer-service-2-line" aria-hidden="true" /> Support
+            </button>
+          </div>
         </section>
-        <section className="ownerBillingGrid">
-          {dashboard.billing.map((bill) => (
-            <article className="panel" key={bill.orgId}>
-              <PanelTitle title={bill.property} meta={titleFromSlug(bill.planStatus)} />
-              <dl className="clientDetails">
-                <div>
-                  <dt>Current plan</dt>
-                  <dd>{bill.planName}</dd>
-                </div>
-                <div>
-                  <dt>Base monthly</dt>
-                  <dd>{money(bill.baseMonthly)}</dd>
-                </div>
-                <div>
-                  <dt>Included users</dt>
-                  <dd>{bill.maxTenants}</dd>
-                </div>
-                <div>
-                  <dt>Active users</dt>
-                  <dd>{bill.activeUsers}</dd>
-                </div>
-                <div>
-                  <dt>Capacity</dt>
-                  <dd>{bill.totalCapacity} beds</dd>
-                </div>
-                <div>
-                  <dt>Renewal</dt>
-                  <dd>{bill.nextRenewal ? new Date(bill.nextRenewal).toLocaleDateString("en-IN") : "Not set"}</dd>
-                </div>
+        <nav className="billingModeTabs" aria-label="Billing mode">
+          {(["overview", "shop", "checkout"] as const).map((mode) => (
+            <button className={billingMode === mode ? "active" : ""} key={mode} onClick={() => setBillingMode(mode)} type="button">
+              {titleFromSlug(mode)}
+            </button>
+          ))}
+        </nav>
+        {billingMode === "overview" && bill ? (
+          <section className="billingOverviewGrid">
+            <article className="panel subscriptionHero">
+              <span className="subscriptionIcon"><i className="ri-vip-crown-2-line" aria-hidden="true" /></span>
+              <div>
+                <small>Current Subscription</small>
+                <h3>{bill.planName}</h3>
+                <p>{bill.property} · {titleFromSlug(bill.planStatus)}</p>
+              </div>
+              <dl>
+                <div><dt>Monthly price</dt><dd>{money(bill.baseMonthly)}</dd></div>
+                <div><dt>Next renewal</dt><dd>{bill.nextRenewal ? new Date(bill.nextRenewal).toLocaleDateString("en-IN") : "Not set"}</dd></div>
+                <div><dt>Beds</dt><dd>{bill.activeUsers}/{bill.totalCapacity}</dd></div>
               </dl>
-              <div className="applyRoleList">
-                {bill.activeFeatures.map((feature) => (
-                  <span key={feature}>{labelFromKey(feature)}</span>
+              <button className="outlineButton" onClick={() => setBillingMode("shop")} type="button">Manage Plan</button>
+            </article>
+            <section className="billingKpiGrid">
+              <article className="panel billingKpi"><span><i className="ri-hotel-bed-line" aria-hidden="true" /></span><div><small>Beds Used</small><strong>{bill.activeUsers} / {bill.totalCapacity}</strong><em>{Math.max(0, bill.totalCapacity - bill.activeUsers)} available</em></div></article>
+              <article className="panel billingKpi"><span><i className="ri-puzzle-2-line" aria-hidden="true" /></span><div><small>Active Extensions</small><strong>{addonCatalog.filter((addon) => isAddonActive(activeFeatures, addon)).length}</strong><em>{addonCatalog.filter((addon) => !isAddonActive(activeFeatures, addon)).length} available</em></div></article>
+              <article className="panel billingKpi"><span><i className="ri-bill-line" aria-hidden="true" /></span><div><small>Upcoming Invoice</small><strong>{money(Math.round(bill.baseMonthly * (1 + gstRate)))}</strong><em>Includes 18% GST</em></div></article>
+            </section>
+            <section className="panel extensionListPanel">
+              <PanelTitle title="Extensions" meta="2 accounts included per extension" />
+              {addonCatalog.map((addon) => {
+                const active = isAddonActive(activeFeatures, addon);
+                return (
+                  <div className="extensionRow" key={addon.id}>
+                    <i className={addon.icon} aria-hidden="true" />
+                    <span><b>{addon.label}</b><small>{addon.copy}</small></span>
+                    <em className={`statusPill ${active ? "active" : "paused"}`}>{active ? "Active" : "Available"}</em>
+                  </div>
+                );
+              })}
+            </section>
+            <section className="panel invoiceSummary">
+              <PanelTitle title="Invoice Summary" meta="This month" />
+              <div><span>Plan ({bill.planName})</span><b>{money(bill.baseMonthly)}</b></div>
+              <div><span>GST (18%)</span><b>{money(Math.round(bill.baseMonthly * gstRate))}</b></div>
+              <footer><span>Total</span><strong>{money(Math.round(bill.baseMonthly * (1 + gstRate)))}</strong></footer>
+            </section>
+          </section>
+        ) : null}
+        {billingMode === "shop" ? (
+          <section className="billingShopGrid">
+            <div className="panel">
+              <PanelTitle title="Choose your plan" meta="Upgrade anytime" />
+              <div className="upgradePlanGrid">
+                {sortedPlans.map((plan) => (
+                  <button className={selectedPlanId === plan.id ? "active" : ""} key={plan.id} onClick={() => setSelectedPlanId(plan.id)} type="button">
+                    <small>{plan.max_tenants}+ beds</small>
+                    <b>{plan.name}</b>
+                    <strong>{money(plan.price_monthly)}<em>/month</em></strong>
+                    <span>{selectedPlanId === plan.id ? "Selected" : "Select plan"}</span>
+                  </button>
                 ))}
               </div>
-            </article>
-          ))}
-        </section>
+            </div>
+            <div className="panel">
+              <PanelTitle title="Capacity" meta="Register more students" />
+              <label className="capacityControl">
+                <span>Licensed beds</span>
+                <input min={bill?.totalCapacity ?? 0} onChange={(event) => setTargetCapacity(Number(event.target.value))} type="number" value={targetCapacity} />
+                <small>{extraBeds} extra beds · {money(bedAmount)}/month</small>
+              </label>
+            </div>
+            <div className="panel">
+              <PanelTitle title="Buy extensions" meta="Activate instantly after payment" />
+              <div className="addonToggleList">
+                {addonCatalog.map((addon) => {
+                  const active = isAddonActive(activeFeatures, addon);
+                  const checked = active || selectedAddons.includes(addon.id);
+                  return (
+                    <label className={checked ? "active" : ""} key={addon.id}>
+                      <i className={addon.icon} aria-hidden="true" />
+                      <span><b>{addon.label}</b><small>{active ? "Already active" : `${money(addon.price)}/month · 2 accounts included`}</small></span>
+                      <span className="switch">
+                        <input checked={checked} disabled={active} onChange={(event) => setSelectedAddons((current) => event.target.checked ? [...current, addon.id] : current.filter((id) => id !== addon.id))} type="checkbox" />
+                        <i />
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <aside className="panel checkoutSummaryPanel">
+              <PanelTitle title="Live quote" meta="Monthly" />
+              <div><span>Plan</span><b>{money(planAmount)}</b></div>
+              <div><span>Extensions</span><b>{money(addonAmount)}</b></div>
+              <div><span>Extra beds</span><b>{money(bedAmount)}</b></div>
+              <div><span>GST (18%)</span><b>{money(gst)}</b></div>
+              <footer><span>Total</span><strong>{money(total)}</strong></footer>
+              <button className="gradientButton fullButton" onClick={() => setBillingMode("checkout")} type="button">Review checkout</button>
+            </aside>
+          </section>
+        ) : null}
+        {billingMode === "checkout" ? (
+          <section className="checkoutGrid">
+            <div className="panel checkoutSteps">
+              <PanelTitle title="Checkout" meta="Secure activation" />
+              <div className="checkoutStepLine">
+                <span className="done"><i className="ri-check-line" aria-hidden="true" /> Select Plan</span>
+                <span className="done"><i className="ri-check-line" aria-hidden="true" /> Customize</span>
+                <span className="active">3 Payment</span>
+              </div>
+              <div className="paymentMethodGrid">
+                {["UPI", "Card", "Net Banking", "Wallet"].map((method) => (
+                  <button className={method === "UPI" ? "active" : ""} key={method} type="button">
+                    <i className={method === "UPI" ? "ri-flashlight-line" : method === "Card" ? "ri-bank-card-line" : method === "Net Banking" ? "ri-bank-line" : "ri-wallet-3-line"} aria-hidden="true" />
+                    {method}
+                  </button>
+                ))}
+              </div>
+              <div className="secureCheckoutNote">
+                <i className="ri-shield-check-line" aria-hidden="true" />
+                <span>Payment confirmation activates plan, extensions, and bed capacity automatically.</span>
+              </div>
+            </div>
+            <aside className="panel checkoutSummaryPanel">
+              <PanelTitle title="Order Summary" meta={selectedPlan?.name ?? bill?.planName ?? "Plan"} />
+              <div><span>Monthly subscription</span><b>{money(planAmount)}</b></div>
+              {selectedAddonItems.map((addon) => <div key={addon.id}><span>{addon.label}</span><b>{money(addon.price)}</b></div>)}
+              <div><span>{extraBeds} extra beds</span><b>{money(bedAmount)}</b></div>
+              <div><span>Subtotal</span><b>{money(subtotal)}</b></div>
+              <div><span>GST (18%)</span><b>{money(gst)}</b></div>
+              <footer><span>Total</span><strong>{money(total)}</strong></footer>
+              <button className="gradientButton fullButton" disabled={isPurchasing} onClick={completePurchase} type="button">
+                <i className="ri-lock-2-line" aria-hidden="true" /> {isPurchasing ? "Activating..." : `Pay securely ${money(total)}`}
+              </button>
+              {message ? <p className="formMessage" role="status">{message}</p> : null}
+            </aside>
+          </section>
+        ) : null}
       </div>
     );
   }
@@ -2230,12 +2527,15 @@ function OwnerWorkspaceSection({ accessToken, orgId, view, setActiveId }: { acce
 function PlatformSection({ accessToken, routeView }: { accessToken: string; routeView?: string }) {
   const [organizations, setOrganizations] = useState<PlatformOrganization[]>([]);
   const [plans, setPlans] = useState<PlatformPlan[]>([]);
+  const [platformRequests, setPlatformRequests] = useState<PlatformOwnerRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [controlTab, setControlTab] = useState("overview");
   const [controlData, setControlData] = useState<PlatformControlData | null>(null);
   const [oneTimeCredential, setOneTimeCredential] = useState<{ loginId: string; temporaryPassword: string } | null>(null);
+  const [selectedPlatformRequestId, setSelectedPlatformRequestId] = useState<string | null>(null);
+  const [platformRequestMessage, setPlatformRequestMessage] = useState("");
   const [overrideDraft, setOverrideDraft] = useState({
     userId: "",
     role: "tenant",
@@ -2250,10 +2550,11 @@ function PlatformSection({ accessToken, routeView }: { accessToken: string; rout
   async function loadPlatform() {
     setIsLoading(true);
     try {
-      const [orgResponse, planResponse] = await Promise.all([fetch(`${apiBase}/platform/organizations`, { headers }), fetch(`${apiBase}/platform/plans`, { headers })]);
-      const [orgData, planData] = await Promise.all([orgResponse.json(), planResponse.json()]);
+      const [orgResponse, planResponse, requestResponse] = await Promise.all([fetch(`${apiBase}/platform/organizations`, { headers }), fetch(`${apiBase}/platform/plans`, { headers }), fetch(`${apiBase}/platform/requests`, { headers })]);
+      const [orgData, planData, requestData] = await Promise.all([orgResponse.json(), planResponse.json(), requestResponse.json()]);
       setOrganizations(orgData.organizations ?? []);
       setPlans(planData.plans ?? []);
+      setPlatformRequests(requestData.requests ?? []);
     } finally {
       setIsLoading(false);
     }
@@ -2351,6 +2652,31 @@ function PlatformSection({ accessToken, routeView }: { accessToken: string; rout
     });
     if (response.ok) await loadControl(selected.id);
   }
+  async function updatePlatformRequest(requestId: string, status: string, applyChanges = false) {
+    const response = await fetch(`${apiBase}/platform/requests/${requestId}/status`, {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ status, applyChanges, message: platformRequestMessage || undefined }),
+    });
+    if (response.ok) {
+      setPlatformRequestMessage("");
+      await loadPlatform();
+      if (selected) await loadControl(selected.id);
+    }
+  }
+  async function sendPlatformRequestMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedPlatformRequestId || !platformRequestMessage.trim()) return;
+    const response = await fetch(`${apiBase}/platform/requests/${selectedPlatformRequestId}/messages`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ message: platformRequestMessage }),
+    });
+    if (response.ok) {
+      setPlatformRequestMessage("");
+      await loadPlatform();
+    }
+  }
   const roleLabels = ["owner", "warden", "guard", "staff", "tenant", "parent"];
   const featureKeys = Array.from(new Set(["rooms", "dues", "gate_pass", "visitor_log", "community", "mess_menu", "documents", "parent_portal", ...(selected?.features.map((feature) => feature.key).filter((key) => !key.startsWith("role_")) ?? [])]));
 
@@ -2375,6 +2701,7 @@ function PlatformSection({ accessToken, routeView }: { accessToken: string; rout
     return matchesQuery && matchesFilter;
   });
   const money = (value: number | string) => `₹${Number(value).toLocaleString("en-IN")}`;
+  const labelFromKey = (value: string) => titleFromSlug(value.replace(/_/g, "-"));
 
   if (routeView === "analytics") {
     const today = new Date();
@@ -2463,7 +2790,9 @@ function PlatformSection({ accessToken, routeView }: { accessToken: string; rout
   }
 
   if (selected) {
-    const tabs = ["overview", "setup", "people", "accounts", "rooms", "apps & roles", "features", "access overrides", "theme & branding", "billing"];
+    const tabs = ["overview", "setup", "people", "accounts", "rooms", "apps & roles", "features", "access overrides", "requests", "theme & branding", "billing"];
+    const selectedOrgRequests = platformRequests.filter((request) => request.organization.id === selected.id);
+    const selectedPlatformRequest = selectedOrgRequests.find((request) => request.id === selectedPlatformRequestId) ?? selectedOrgRequests[0];
     return (
       <div className="platformPage">
         <div className="clientControlHeader panel">
@@ -2848,6 +3177,69 @@ function PlatformSection({ accessToken, routeView }: { accessToken: string; rout
               </div>
             </section>
           </div>
+        ) : null}
+        {controlTab === "requests" ? (
+          <section className="ticketCenterGrid platformRequestCenter">
+            <div className="panel">
+              <PanelTitle title="Client requests" meta={`${selectedOrgRequests.length} requests`} />
+              <div className="ownerRequestList ticketList">
+                {selectedOrgRequests.map((request) => (
+                  <button className={selectedPlatformRequest?.id === request.id ? "active" : ""} key={request.id} onClick={() => setSelectedPlatformRequestId(request.id)} type="button">
+                    <span className={`statusPill ${request.status}`}>{labelFromKey(request.status)}</span>
+                    <div>
+                      <b>{request.title}</b>
+                      <small>
+                        {labelFromKey(request.type)} · {request.requested_by_user.full_name}
+                      </small>
+                      <p>{request.reason || request.required_access || request.requiredAccess || "No details supplied."}</p>
+                    </div>
+                    <time>{new Date(request.updated_at || request.created_at).toLocaleDateString("en-IN")}</time>
+                  </button>
+                ))}
+                {!selectedOrgRequests.length ? <EmptyPanel title="No client requests" copy="Owner purchase changes and support tickets will appear here." /> : null}
+              </div>
+            </div>
+            <aside className="panel ticketChatPanel">
+              <PanelTitle title={selectedPlatformRequest ? selectedPlatformRequest.title : "Request details"} meta={selectedPlatformRequest ? labelFromKey(selectedPlatformRequest.status) : "Empty"} />
+              {selectedPlatformRequest ? (
+                <>
+                  <div className="ticketMetaGrid">
+                    <span>{selectedPlatformRequest.organization.name}</span>
+                    <span>{labelFromKey(selectedPlatformRequest.type)}</span>
+                    <span>{new Date(selectedPlatformRequest.created_at).toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="requestActionBar">
+                    <select aria-label="Request status" onChange={(event) => updatePlatformRequest(selectedPlatformRequest.id, event.target.value)} value={selectedPlatformRequest.status}>
+                      {["submitted", "under_review", "need_more_info", "approved", "fulfilled", "activated", "rejected", "canceled"].map((status) => (
+                        <option key={status} value={status}>{labelFromKey(status)}</option>
+                      ))}
+                    </select>
+                    <button className="outlineButton" onClick={() => updatePlatformRequest(selectedPlatformRequest.id, "activated", true)} type="button">
+                      <i className="ri-flashlight-line" aria-hidden="true" /> Apply changes
+                    </button>
+                  </div>
+                  <div className="ticketTimeline">
+                    {(selectedPlatformRequest.events ?? []).map((event) => (
+                      <article className={eventActor(event).toLowerCase().includes("owner") ? "owner" : ""} key={event.id}>
+                        <small>
+                          {eventActor(event)} · {labelFromKey(eventKind(event))} · {new Date(eventDate(event)).toLocaleString("en-IN")}
+                        </small>
+                        <p>{event.message || "Status updated."}</p>
+                      </article>
+                    ))}
+                  </div>
+                  <form className="ticketMessageForm" onSubmit={sendPlatformRequestMessage}>
+                    <input aria-label="Message client" onChange={(event) => setPlatformRequestMessage(event.target.value)} placeholder="Reply to owner..." value={platformRequestMessage} />
+                    <button className="gradientButton" type="submit">
+                      <i className="ri-send-plane-2-line" aria-hidden="true" /> Send
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <EmptyPanel title="Select a request" copy="Timeline, chat, and fulfillment controls will appear here." />
+              )}
+            </aside>
+          </section>
         ) : null}
         {controlTab === "theme & branding" ? (
           <section className="brandingGrid">
