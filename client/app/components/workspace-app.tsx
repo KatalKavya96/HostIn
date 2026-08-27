@@ -130,8 +130,10 @@ type DueRecord = {
   amount_paid: string | number;
   due_date: string;
   due_type: string;
+  description?: string | null;
+  billing_month?: string;
   status: string;
-  tenant: { full_name: string };
+  tenant: { id?: string; full_name: string; email?: string; phone?: string };
 };
 
 type StaffContactRecord = { id: string; name: string; phone: string; role_type: string };
@@ -140,9 +142,40 @@ type PaymentRecord = {
   id: string;
   amount: string | number;
   payment_method: string;
+  gateway?: string;
   paid_at: string;
   status: string;
-  due: { due_type: string; amount: string | number; due_date: string };
+  receipt_url?: string | null;
+  tenant?: { id: string; full_name: string };
+  due: { due_type: string; amount: string | number; due_date: string; description?: string | null };
+};
+
+type BillingTenantRow = {
+  tenant: { id: string; fullName: string; email?: string | null; phone?: string | null; profilePhotoUrl?: string | null };
+  room: { number: string; type: string; monthlyRent: string | number } | null;
+  dueCount: number;
+  dueDate?: string | null;
+  status: string;
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+};
+
+type BillingSummaryData = {
+  month: string;
+  lateFeeConfig?: { is_active: boolean; fine_day?: number | null; fine_amount: string | number; description?: string | null } | null;
+  summary: {
+    totalAmount: number;
+    paidAmount: number;
+    balanceAmount: number;
+    overdueAmount: number;
+    collectionRate: number;
+    tenantCount: number;
+    overdueCount: number;
+  };
+  tenants: BillingTenantRow[];
+  dues: DueRecord[];
+  payments: PaymentRecord[];
 };
 type NotificationRecord = { id: string; title: string; body: string; status: string; created_at: string };
 type PlatformOrganization = {
@@ -4045,144 +4078,248 @@ function fileToDataUrl(file: File) {
 }
 
 function FinanceSection({ accessToken, isTenant, orgId }: { accessToken: string; isTenant: boolean; orgId: string }) {
-  const [dues, setDues] = useState<DueRecord[]>([]);
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [billing, setBilling] = useState<BillingSummaryData | null>(null);
   const [checkoutDue, setCheckoutDue] = useState<DueRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState("all");
-  const [sort, setSort] = useState("desc");
   const [search, setSearch] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
+  const [showFineSettings, setShowFineSettings] = useState(false);
+  const [showChargeForm, setShowChargeForm] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [billingMonth, setBillingMonth] = useState(new Date().toISOString().slice(0, 7));
+
+  const loadBilling = useCallback(async () => {
+    setIsLoading(true);
+    const response = await fetch(`${apiBase}/dues/billing-summary?month=${billingMonth}`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Billing could not be loaded");
+    setBilling(data);
+    setSelectedTenantId((current) => current || data.tenants?.[0]?.tenant?.id || "");
+    setIsLoading(false);
+  }, [accessToken, billingMonth, orgId]);
 
   useEffect(() => {
-    setIsLoading(true);
-    Promise.all([fetch(`${apiBase}/dues`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((response) => response.json()), fetch(`${apiBase}/payments`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((response) => response.json())])
-      .then(([dueData, paymentData]) => {
-        setDues(dueData.dues ?? []);
-        setPayments(paymentData.payments ?? []);
-      })
-      .catch(() => setDues([]))
-      .finally(() => setIsLoading(false));
-  }, [accessToken, orgId]);
+    loadBilling().catch(() => {
+      setBilling(null);
+      setIsLoading(false);
+    });
+  }, [loadBilling]);
 
-  const visible = dues
-    .filter((due) => {
-      const paid = due.status === "paid";
-      return (status === "all" || (status === "paid" ? paid : !paid)) && due.tenant.full_name.toLowerCase().includes(search.toLowerCase());
-    })
-    .sort((a, b) => (Number(a.amount) - Number(b.amount)) * (sort === "asc" ? 1 : -1));
-  const paidDues = dues.filter((due) => due.status === "paid");
-  const dueDues = dues.filter((due) => due.status !== "paid");
+  const dues = billing?.dues ?? [];
+  const payments = billing?.payments ?? [];
+  const tenantRows = billing?.tenants ?? [];
+  const activeTenant = tenantRows.find((row) => row.tenant.id === selectedTenantId) ?? tenantRows[0];
+  const activeTenantDues = activeTenant ? dues.filter((due) => due.tenant?.id === activeTenant.tenant.id || due.tenant?.full_name === activeTenant.tenant.fullName) : dues;
+  const activeTenantPayments = activeTenant ? payments.filter((payment) => payment.tenant?.id === activeTenant.tenant.id || payment.tenant?.full_name === activeTenant.tenant.fullName) : payments;
+  const outstandingDues = dues.filter((due) => !["paid", "waived"].includes(due.status));
+  const filteredTenants = tenantRows.filter((row) => {
+    const matchesStatus = status === "all" || row.status === status;
+    const haystack = `${row.tenant.fullName} ${row.tenant.phone ?? ""} ${row.tenant.email ?? ""} ${row.room?.number ?? ""}`.toLowerCase();
+    return matchesStatus && haystack.includes(search.toLowerCase());
+  });
 
   async function payDue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!checkoutDue) return;
     const form = new FormData(event.currentTarget);
     const remaining = Number(checkoutDue.amount) - Number(checkoutDue.amount_paid);
+    const checkoutResponse = await fetch(`${apiBase}/payments/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+      body: JSON.stringify({ dueId: checkoutDue.id, amount: remaining }),
+    });
+    const checkout = await checkoutResponse.json().catch(() => ({}));
+    if (!checkoutResponse.ok) {
+      setNotice(checkout.error || "Payment checkout could not be created.");
+      return;
+    }
+
+    if (checkout.mode === "razorpay" && checkout.keyId) {
+      await loadRazorpayCheckout();
+      const Razorpay = (window as unknown as { Razorpay?: new (options: Record<string, unknown>) => { open: () => void } }).Razorpay;
+      if (!Razorpay) {
+        setNotice("Payment gateway could not be opened. Please retry.");
+        return;
+      }
+      new Razorpay({
+        key: checkout.keyId,
+        amount: Math.round(remaining * 100),
+        currency: "INR",
+        name: "HostIn",
+        description: titleFromSlug(checkoutDue.due_type),
+        order_id: checkout.orderId,
+        prefill: { name: checkout.tenant?.full_name, email: checkout.tenant?.email, contact: checkout.tenant?.phone },
+        handler: async (payment: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          await recordPayment(checkoutDue, remaining, String(form.get("paymentMethod") || "upi"), payment.razorpay_order_id, payment.razorpay_payment_id, payment.razorpay_signature);
+        },
+      }).open();
+      return;
+    }
+
+    await recordPayment(checkoutDue, remaining, String(form.get("paymentMethod") || "upi"), checkout.orderId, `${checkout.orderId || "hostin_demo"}_payment`);
+  }
+
+  async function recordPayment(due: DueRecord, amount: number, paymentMethod: string, gatewayOrderId?: string, gatewayPaymentId?: string, gatewaySignature?: string) {
     const response = await fetch(`${apiBase}/payments`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
       body: JSON.stringify({
-        dueId: checkoutDue.id,
-        amount: remaining,
-        paymentMethod: form.get("paymentMethod"),
-        gateway: "manual",
+        dueId: due.id,
+        amount,
+        paymentMethod,
+        gateway: "razorpay",
+        gatewayOrderId,
+        gatewayPaymentId,
+        gatewaySignature,
       }),
     });
     if (response.ok) {
       setCheckoutDue(null);
-      const [dueData, paymentData] = await Promise.all([fetch(`${apiBase}/dues`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((item) => item.json()), fetch(`${apiBase}/payments`, { headers: { Authorization: `Bearer ${accessToken}`, "x-org-id": orgId } }).then((item) => item.json())]);
-      setDues(dueData.dues ?? []);
-      setPayments(paymentData.payments ?? []);
+      await loadBilling();
+    } else {
+      const data = await response.json().catch(() => ({}));
+      setNotice(data.error || "Payment could not be recorded.");
+    }
+  }
+
+  async function saveFineSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await fetch(`${apiBase}/dues/late-fee-config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+      body: JSON.stringify({
+        isActive: form.get("isActive") === "on",
+        fineDay: form.get("fineDay"),
+        fineAmount: form.get("fineAmount"),
+        description: form.get("description"),
+        billingMonth,
+        applyToCurrentMonth: true,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setNotice(response.ok ? `${data.applied ?? 0} tenant fine records updated.` : data.error || "Late fee settings could not be saved.");
+    if (response.ok) {
+      setShowFineSettings(false);
+      await loadBilling();
+    }
+  }
+
+  async function addCharge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const response = await fetch(`${apiBase}/dues`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, "x-org-id": orgId },
+      body: JSON.stringify({
+        tenantId: form.get("tenantId"),
+        dueType: form.get("dueType"),
+        amount: form.get("amount"),
+        description: form.get("description"),
+        dueDate: form.get("dueDate"),
+        billingMonth: `${billingMonth}-01`,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    setNotice(response.ok ? "Charge added to the tenant ledger." : data.error || "Charge could not be added.");
+    if (response.ok) {
+      setShowChargeForm(false);
+      await loadBilling();
     }
   }
 
   if (isTenant)
     return (
-      <section className="tenantBilling">
+      <section className="tenantBilling billingWorkspace">
         <section className="panel feedPanel">
-          <PanelTitle title="My dues" meta={`${dueDues.length} outstanding`} />
-          {isLoading ? (
+          <PanelTitle title="My payment breakdown" meta={billing?.month ?? billingMonth} />
+          {isLoading || !billing ? (
             <DirectorySkeleton />
-          ) : dueDues.length ? (
-            <div className="billGrid">
-              {dueDues.map((due) => {
-                const remaining = Number(due.amount) - Number(due.amount_paid);
-                return (
-                  <article className="billCard" key={due.id}>
-                    <div className="billHeader">
-                      <div>
-                        <small>{titleFromSlug(due.due_type)}</small>
-                        <strong>₹{remaining.toLocaleString("en-IN")}</strong>
-                      </div>
-                      <span className={`statusPill ${due.status}`}>{due.status}</span>
-                    </div>
-                    <dl>
-                      <div>
-                        <dt>Base amount</dt>
-                        <dd>₹{Number(due.amount).toLocaleString("en-IN")}</dd>
-                      </div>
-                      <div>
-                        <dt>Already paid</dt>
-                        <dd>- ₹{Number(due.amount_paid).toLocaleString("en-IN")}</dd>
-                      </div>
-                      <div>
-                        <dt>Due date</dt>
-                        <dd>{new Date(due.due_date).toLocaleDateString("en-IN")}</dd>
-                      </div>
-                      <div className="billTotal">
-                        <dt>Amount payable</dt>
-                        <dd>₹{remaining.toLocaleString("en-IN")}</dd>
-                      </div>
-                    </dl>
-                    <button className="gradientButton fullButton" onClick={() => setCheckoutDue(due)} type="button">
-                      Pay now
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
           ) : (
-            <EmptyPanel title="Nothing due" copy="You have no outstanding payments." />
+            <div className="tenantBillingGrid">
+              <article className="billingBreakdownCard">
+                <div className="billingCardHeader">
+                  <div>
+                    <small>Outstanding balance</small>
+                    <strong>{money(billing.summary.balanceAmount)}</strong>
+                  </div>
+                  <span className={`statusPill ${activeTenant?.status ?? "unpaid"}`}>{titleFromSlug(activeTenant?.status ?? "unpaid")}</span>
+                </div>
+                <div className="billingLineItems">
+                  {dues.map((due) => {
+                    const remaining = Number(due.amount) - Number(due.amount_paid);
+                    return (
+                      <div key={due.id}>
+                        <span>
+                          <b>{titleFromSlug(due.due_type)}</b>
+                          <small>{due.description || `Due ${formatDateTime(due.due_date)}`}</small>
+                        </span>
+                        <strong>{money(remaining)}</strong>
+                      </div>
+                    );
+                  })}
+                </div>
+                <dl className="billingTotals">
+                  <div><dt>Total payable</dt><dd>{money(billing.summary.totalAmount)}</dd></div>
+                  <div><dt>Already paid</dt><dd>{money(billing.summary.paidAmount)}</dd></div>
+                  <div><dt>Balance due</dt><dd>{money(billing.summary.balanceAmount)}</dd></div>
+                </dl>
+              </article>
+              <article className="billingSideCard">
+                <PanelTitle title="Secure checkout" meta={`${outstandingDues.length} open dues`} />
+                {outstandingDues.length ? (
+                  <div className="billingActionList">
+                    {outstandingDues.map((due) => {
+                      const remaining = Number(due.amount) - Number(due.amount_paid);
+                      return (
+                        <button key={due.id} onClick={() => setCheckoutDue(due)} type="button">
+                          <i aria-hidden="true" className="ri-bank-card-line" />
+                          <span><b>{titleFromSlug(due.due_type)}</b><small>Pay {money(remaining)}</small></span>
+                          <i aria-hidden="true" className="ri-arrow-right-line" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <EmptyPanel title="Nothing due" copy="You have no outstanding payments." />
+                )}
+              </article>
+            </div>
           )}
         </section>
         <section className="panel feedPanel">
-          <PanelTitle title="Payment history" meta={`${payments.length} payments`} />
+          <PanelTitle title="Payment history" meta={`${payments.length} receipts`} />
           {payments.length ? (
-            <div className="recordList">
+            <div className="billingTimeline">
               {payments.map((payment) => (
-                <article className="actionRecord" key={payment.id}>
+                <article key={payment.id}>
+                  <i aria-hidden="true" className={payment.status === "successful" ? "ri-checkbox-circle-line" : "ri-error-warning-line"} />
                   <div>
-                    <strong>{titleFromSlug(payment.due.due_type)}</strong>
-                    <small>
-                      {formatDateTime(payment.paid_at)} · {titleFromSlug(payment.payment_method)}
-                    </small>
+                    <strong>{money(payment.amount)}</strong>
+                    <small>{titleFromSlug(payment.due?.due_type ?? "payment")} · {formatDateTime(payment.paid_at)} · {titleFromSlug(payment.payment_method)}</small>
                   </div>
-                  <div className="dueAmount">
-                    <strong>₹{Number(payment.amount).toLocaleString("en-IN")}</strong>
-                    <span className={`statusPill ${payment.status}`}>{payment.status}</span>
-                  </div>
+                  <span className={`statusPill ${payment.status}`}>{titleFromSlug(payment.status)}</span>
                 </article>
               ))}
             </div>
           ) : (
-            <EmptyPanel title="No payments yet" copy="Completed payments and their breakdown will remain here." />
+            <EmptyPanel title="No payments yet" copy="Completed payments and receipts will remain here." />
           )}
         </section>
         {checkoutDue ? (
           <div className="modalBackdrop" onMouseDown={() => setCheckoutDue(null)}>
-            <form className="panel checkoutModal" onMouseDown={(event) => event.stopPropagation()} onSubmit={payDue}>
+            <form className="panel checkoutModal billingModal" onMouseDown={(event) => event.stopPropagation()} onSubmit={payDue}>
               <div className="modalHeader">
                 <div>
                   <h3>Payment checkout</h3>
-                  <p>{titleFromSlug(checkoutDue.due_type)}</p>
+                  <p>{titleFromSlug(checkoutDue.due_type)} · encrypted gateway session</p>
                 </div>
-                <button aria-label="Close checkout" onClick={() => setCheckoutDue(null)} type="button">
-                  ×
-                </button>
+                <button aria-label="Close checkout" onClick={() => setCheckoutDue(null)} type="button"><i aria-hidden="true" className="ri-close-line" /></button>
               </div>
               <div className="checkoutTotal">
                 <span>Total payable</span>
-                <strong>₹{(Number(checkoutDue.amount) - Number(checkoutDue.amount_paid)).toLocaleString("en-IN")}</strong>
+                <strong>{money(Number(checkoutDue.amount) - Number(checkoutDue.amount_paid))}</strong>
               </div>
               <label>
                 <span>Payment method</span>
@@ -4192,10 +4329,7 @@ function FinanceSection({ accessToken, isTenant, orgId }: { accessToken: string;
                   <option value="net_banking">Net banking</option>
                 </select>
               </label>
-              <button className="gradientButton fullButton" type="submit">
-                Pay securely
-              </button>
-              <small className="checkoutNote">Payment gateway integration will replace manual confirmation in production.</small>
+              <button className="gradientButton fullButton" type="submit"><i aria-hidden="true" className="ri-lock-2-line" /> Complete payment</button>
             </form>
           </div>
         ) : null}
@@ -4203,47 +4337,135 @@ function FinanceSection({ accessToken, isTenant, orgId }: { accessToken: string;
     );
 
   return (
-    <section className="financeExperience">
-      <div className="financeStats">
-        <Metric label="Paid" value={`₹${sumDues(paidDues)}`} meta={`${countDueTenants(paidDues)} students`} />
-        <Metric label="Due" value={`₹${sumDues(dueDues)}`} meta={`${countDueTenants(dueDues)} students`} />
-      </div>
-      <section className="panel feedPanel">
-        <div className="roomsToolbar financeToolbar">
-          <input onChange={(event) => setSearch(event.target.value)} placeholder="Search tenant name..." value={search} />
-          <select onChange={(event) => setStatus(event.target.value)} value={status}>
-            <option value="all">All payments</option>
-            <option value="paid">Paid</option>
-            <option value="due">Not paid</option>
-          </select>
-          <select onChange={(event) => setSort(event.target.value)} value={sort}>
-            <option value="desc">Price: high to low</option>
-            <option value="asc">Price: low to high</option>
-          </select>
+    <section className="financeExperience billingWorkspace">
+      <div className="billingHeroActions">
+        <div>
+          <h3>Dues command center</h3>
+          <p>Track tenant balances, apply late fees, add charges, and reconcile payments from one ledger.</p>
         </div>
-        {isLoading ? (
-          <DirectorySkeleton />
-        ) : visible.length ? (
-          <div className="recordList">
-            {visible.map((due) => (
-              <article className="actionRecord" key={due.id}>
-                <div>
-                  <strong>{due.tenant.full_name}</strong>
-                  <small>
-                    {titleFromSlug(due.due_type)} · Due {new Date(due.due_date).toLocaleDateString("en-IN")}
-                  </small>
-                </div>
-                <div className="dueAmount">
-                  <strong>₹{Number(due.amount).toLocaleString("en-IN")}</strong>
-                  <span className={`statusPill ${due.status}`}>{due.status}</span>
-                </div>
-              </article>
+        <div>
+          <label className="monthPicker">
+            <span>Billing month</span>
+            <input onChange={(event) => setBillingMonth(event.target.value)} type="month" value={billingMonth} />
+          </label>
+          <button className="outlineButton" onClick={() => setShowFineSettings(true)} type="button"><i aria-hidden="true" className="ri-settings-4-line" /> Late Fee Settings</button>
+          <button className="gradientButton" onClick={() => setShowChargeForm(true)} type="button"><i aria-hidden="true" className="ri-add-line" /> Add Charges</button>
+        </div>
+      </div>
+      {notice ? <div className="syncBanner"><span>Billing</span>{notice}</div> : null}
+      <div className="billingKpis">
+        <Metric label="Total collected" value={money(billing?.summary.paidAmount ?? 0)} meta="This month" />
+        <Metric label="Total due" value={money(billing?.summary.balanceAmount ?? 0)} meta={`From ${billing?.summary.tenantCount ?? 0} tenants`} />
+        <Metric label="Overdue" value={money(billing?.summary.overdueAmount ?? 0)} meta={`${billing?.summary.overdueCount ?? 0} tenants`} />
+        <Metric label="Collection rate" value={`${billing?.summary.collectionRate ?? 0}%`} meta="Paid against generated dues" />
+      </div>
+      <section className="panel billingLedgerPanel">
+        <div className="billingFilters">
+          <div className="billingTabs" role="tablist" aria-label="Payment status">
+            {["all", "paid", "unpaid", "partial", "overdue"].map((item) => (
+              <button aria-selected={status === item} className={status === item ? "active" : ""} key={item} onClick={() => setStatus(item)} role="tab" type="button">{titleFromSlug(item)}</button>
             ))}
           </div>
+          <label>
+            <i aria-hidden="true" className="ri-search-line" />
+            <input onChange={(event) => setSearch(event.target.value)} placeholder="Search tenant, room, phone..." value={search} />
+          </label>
+        </div>
+        {isLoading || !billing ? (
+          <DirectorySkeleton />
+        ) : filteredTenants.length ? (
+          <div className="billingContentGrid">
+            <div className="billingTableWrap">
+              <table className="billingTable">
+                <thead><tr><th>Tenant</th><th>Room</th><th>Monthly due</th><th>Paid</th><th>Due amount</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {filteredTenants.map((row) => (
+                    <tr className={activeTenant?.tenant.id === row.tenant.id ? "selected" : ""} key={row.tenant.id}>
+                      <td><span className="tenantIdentity"><b>{getInitials(row.tenant.fullName)}</b><span><strong>{row.tenant.fullName}</strong><small>{row.tenant.phone || row.tenant.email || "Tenant account"}</small></span></span></td>
+                      <td><strong>{row.room?.number ?? "Unassigned"}</strong><small>{row.room ? titleFromSlug(row.room.type) : "No room"}</small></td>
+                      <td>{money(row.totalAmount)}</td>
+                      <td>{money(row.paidAmount)}</td>
+                      <td>{money(row.balanceAmount)}</td>
+                      <td><span className={`statusPill ${row.status}`}>{titleFromSlug(row.status)}</span></td>
+                      <td><button className="outlineButton miniButton" onClick={() => setSelectedTenantId(row.tenant.id)} type="button">View details</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {activeTenant ? (
+              <aside className="billingTenantPanel">
+                <div className="billingCardHeader">
+                  <div>
+                    <small>Tenant ledger</small>
+                    <strong>{activeTenant.tenant.fullName}</strong>
+                    <p>{activeTenant.room ? `Room ${activeTenant.room.number} · ${titleFromSlug(activeTenant.room.type)}` : "No active room"}</p>
+                  </div>
+                  <span className={`statusPill ${activeTenant.status}`}>{titleFromSlug(activeTenant.status)}</span>
+                </div>
+                <dl className="billingTotals">
+                  <div><dt>Total payable</dt><dd>{money(activeTenant.totalAmount)}</dd></div>
+                  <div><dt>Amount paid</dt><dd>{money(activeTenant.paidAmount)}</dd></div>
+                  <div><dt>Balance due</dt><dd>{money(activeTenant.balanceAmount)}</dd></div>
+                </dl>
+                <div className="billingLineItems compact">
+                  {activeTenantDues.map((due) => (
+                    <div key={due.id}>
+                      <span><b>{titleFromSlug(due.due_type)}</b><small>{due.description || `Due ${formatDateTime(due.due_date)}`}</small></span>
+                      <strong>{money(Number(due.amount) - Number(due.amount_paid))}</strong>
+                    </div>
+                  ))}
+                </div>
+                <div className="billingTimeline compact">
+                  {activeTenantPayments.slice(0, 3).map((payment) => (
+                    <article key={payment.id}>
+                      <i aria-hidden="true" className="ri-checkbox-circle-line" />
+                      <div><strong>{money(payment.amount)}</strong><small>{formatDateTime(payment.paid_at)}</small></div>
+                    </article>
+                  ))}
+                </div>
+              </aside>
+            ) : null}
+          </div>
         ) : (
-          <EmptyPanel title="No dues found" copy="Monthly rent dues appear automatically after a tenant is assigned a room." />
+          <EmptyPanel title="No tenants found" copy="Assigned tenants with generated dues will appear here." />
         )}
       </section>
+      {showFineSettings ? (
+        <div className="modalBackdrop" onMouseDown={() => setShowFineSettings(false)}>
+          <form className="panel billingModal" onMouseDown={(event) => event.stopPropagation()} onSubmit={saveFineSettings}>
+            <div className="modalHeader">
+              <div><h3>Late fee settings</h3><p>Apply, update, or remove fine records for open tenant balances.</p></div>
+              <button aria-label="Close late fee settings" onClick={() => setShowFineSettings(false)} type="button"><i aria-hidden="true" className="ri-close-line" /></button>
+            </div>
+            <label className="billingSwitch"><input defaultChecked={Boolean(billing?.lateFeeConfig?.is_active)} name="isActive" type="checkbox" /><span>Enable late payment fine</span></label>
+            <div className="billingFormGrid">
+              <label><span>Fine date</span><input defaultValue={billing?.lateFeeConfig?.fine_day ?? 6} max={31} min={1} name="fineDay" type="number" /></label>
+              <label><span>Fine amount</span><input defaultValue={Number(billing?.lateFeeConfig?.fine_amount ?? 0)} min={0} name="fineAmount" step="1" type="number" /></label>
+            </div>
+            <label><span>Description</span><input defaultValue={billing?.lateFeeConfig?.description ?? "Late payment fine"} name="description" /></label>
+            <button className="gradientButton fullButton" type="submit">Save and sync tenants</button>
+          </form>
+        </div>
+      ) : null}
+      {showChargeForm ? (
+        <div className="modalBackdrop" onMouseDown={() => setShowChargeForm(false)}>
+          <form className="panel billingModal" onMouseDown={(event) => event.stopPropagation()} onSubmit={addCharge}>
+            <div className="modalHeader">
+              <div><h3>Add tenant charge</h3><p>Create a due and notify the tenant account.</p></div>
+              <button aria-label="Close add charge" onClick={() => setShowChargeForm(false)} type="button"><i aria-hidden="true" className="ri-close-line" /></button>
+            </div>
+            <label><span>Tenant</span><select name="tenantId" required>{tenantRows.map((row) => <option key={row.tenant.id} value={row.tenant.id}>{row.tenant.fullName} {row.room ? `· ${row.room.number}` : ""}</option>)}</select></label>
+            <div className="billingFormGrid">
+              <label><span>Charge type</span><select name="dueType" required><option value="rent">Rent</option><option value="maintenance">Maintenance</option><option value="mess">Mess</option><option value="electricity">Electricity</option><option value="security_deposit">Security deposit</option><option value="other">Other</option></select></label>
+              <label><span>Amount</span><input min={1} name="amount" required step="1" type="number" /></label>
+            </div>
+            <label><span>Due date</span><input defaultValue={`${billingMonth}-06`} name="dueDate" required type="date" /></label>
+            <label><span>Description</span><input name="description" placeholder="Monthly room rent, utility charge, adjustment..." /></label>
+            <button className="gradientButton fullButton" type="submit">Add charge</button>
+          </form>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -4371,12 +4593,6 @@ function StaffContactsSection({ accessToken, orgId }: { accessToken: string; org
   );
 }
 
-function sumDues(dues: DueRecord[]) {
-  return dues.reduce((sum, due) => sum + Math.max(0, Number(due.amount) - Number(due.amount_paid)), 0).toLocaleString("en-IN");
-}
-function countDueTenants(dues: DueRecord[]) {
-  return new Set(dues.map((due) => due.tenant.full_name)).size;
-}
 function getMondayInput() {
   const date = new Date();
   const day = date.getDay();
@@ -4841,6 +5057,10 @@ function getInitials(name: string) {
     .join("");
 }
 
+function money(value: unknown) {
+  return `₹${Number(value ?? 0).toLocaleString("en-IN")}`;
+}
+
 function formatRoomType(type: string) {
   return type
     .split("_")
@@ -4853,6 +5073,25 @@ function formatDateTime(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Not scheduled";
   return date.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function loadRazorpayCheckout() {
+  if (typeof window === "undefined") return Promise.resolve();
+  if ((window as unknown as { Razorpay?: unknown }).Razorpay) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Unable to load Razorpay checkout")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load Razorpay checkout"));
+    document.head.appendChild(script);
+  });
 }
 
 function dayToDate(value: string) {

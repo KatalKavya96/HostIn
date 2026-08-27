@@ -155,6 +155,27 @@ export default function LandingPage() {
 
       <OwnerCommandCenter />
 
+      <section className="ownerStory landingSection" aria-labelledby="owner-story-title">
+        <div className="ownerStoryQuote">
+          <p className="sectionEyebrow">Owner success story</p>
+          <span className="ownerStoryMark" aria-hidden="true">“</span>
+          <blockquote id="owner-story-title">Hostin has simplified everything—from rent collection to staff tasks. I finally get my evenings back.</blockquote>
+          <div className="ownerStoryPerson">
+            <span>HN</span>
+            <p><strong>Hostin property partner</strong><small>Multi-property operator · Bengaluru</small><em>Illustrative content—replace with a verified customer story.</em></p>
+          </div>
+        </div>
+        <div className="ownerStoryProperty">
+          <Image src="/brand/hostin-owner-story-property.png" alt="A professionally managed co-living property at dusk" fill sizes="(max-width: 720px) 100vw, 34vw" />
+          <span>3 properties connected</span>
+        </div>
+        <div className="ownerStoryResults" aria-label="Owner results">
+          <article><i className="ri-time-line" /><p><strong>12<small> hrs</small></strong><span>saved every week</span></p></article>
+          <article><i className="ri-checkbox-circle-line" /><p><strong>97<small>%</small></strong><span>rent collected on time</span></p></article>
+          <article><i className="ri-building-4-line" /><p><strong>3</strong><span>properties connected</span></p></article>
+        </div>
+      </section>
+
       <section className="roleSection landingSection" id="roles">
         <div className="landingSectionHeader"><p className="sectionEyebrow">Made for the whole team</p><h2>One platform. Different views for everyone.</h2><p>Everyone gets what they need—without the clutter they do not.</p></div>
         <div className="roleTabs" role="tablist">{Object.keys(roleData).map(role => <button key={role} className={activeRole === role ? "active" : ""} onClick={() => setActiveRole(role as keyof typeof roleData)}>{role}</button>)}</div>
