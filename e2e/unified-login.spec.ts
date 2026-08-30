@@ -111,7 +111,7 @@ test("warden account opens a minimal daily operations dashboard", async ({ page 
   await expect(page.getByRole("button", { name: "Tenant Passes" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Visitors" })).toBeVisible();
 
-  await sidebar.getByRole("button", { name: "Documents Vault", exact: true }).click();
+  await clickWorkspaceButton(page, "Documents Vault");
   const filter = page.getByLabel("Filter documents by student name");
   await expect(filter).toBeVisible();
   await filter.fill("Aarav");
@@ -182,12 +182,12 @@ test("owner account opens the database-backed business dashboard", async ({ page
   await ownerDocumentFilter.fill("Aarav");
   await expect(page.getByText("Aarav Mehta", { exact: true })).toBeVisible();
 
-  await clickWorkspaceButton(page, "Requests");
-  await expect(page.getByRole("heading", { name: "Request history" })).toBeVisible();
-  await page.getByRole("button", { name: "New Request" }).click();
-  await expect(page.getByRole("heading", { name: "New Request" })).toBeVisible();
+  await clickWorkspaceButton(page, "Help & Support");
+  await expect(page.getByRole("heading", { name: "Help & Support" })).toBeVisible();
+  await page.getByRole("button", { name: "Raise a ticket" }).click();
+  await expect(page.getByRole("heading", { name: "Raise a Ticket" })).toBeVisible();
   await page.locator(".modalBackdrop").click({ position: { x: 10, y: 10 } });
-  await expect(page.getByRole("heading", { name: "New Request" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Raise a Ticket" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Profile menu" }).click();
   await page.getByRole("button", { name: "View profile" }).click();
